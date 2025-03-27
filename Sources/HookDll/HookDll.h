@@ -1,4 +1,6 @@
-// Copyright (C) 2007-2013 Ivan Zhakov.
+﻿// Copyright (C) 2007-2013 Ivan Zhakov.
+
+#include <Windows.h>
 
 #ifdef HOOKDLL_EXPORTS
 #define HOOKDLL_API __declspec(dllexport)
@@ -21,3 +23,5 @@ HOOKDLL_API int TFHookInstall     (HWND hwnd);
 HOOKDLL_API int TFHookUninstall   ();
 
 HOOKDLL_API void TFHookGetStat(int * pFreezeCount);
+
+HOOKDLL_API void TFHookSetBlockTime(DWORD milliseconds);

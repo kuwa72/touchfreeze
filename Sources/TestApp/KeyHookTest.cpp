@@ -1,10 +1,17 @@
 // Copyright (C) 2007-2013 Ivan Zhakov.
-#include "stdafx.h"
+// Main application source file
 
+#include "stdafx.h"
 #include "..\HookDll\HookDll.h"
 #include "AboutDlg.h"
 #include "resource.h"
 #include "Constants.h"
+#include <shellapi.h>
+#include <tchar.h>
+
+#define TOUCHFREEZE_KEY _T("Software\\TouchFreeze")
+#define WEBSITE_URL _T("http://touchfreeze.net")
+#define DONATE_URL _T("http://touchfreeze.net/donate")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -15,12 +22,20 @@ static char THIS_FILE[] = __FILE__;
 const UINT     wm_KBHookNotify = RegisterWindowMessage( TFHookNotifyMsg );
 const UINT     wm_ShellNotify = WM_APP + 1;
 NOTIFYICONDATA m_NotifyIcon;
+HICON          g_hIconNormal;
+HICON          g_hIconBlocked;
+
+HINSTANCE      g_hInst = NULL;
 
 const int IDT_HIDE_BALLOON  = 1;
 DWORD g_HideBalloonTime = 0;
-const int g_BalloonTimeout = 700; // 700 ms
+const int g_BalloonTimeout = 500; // 500ms
 
-HINSTANCE      g_hInst = NULL;
+// Block time constants
+const DWORD BLOCK_TIME_SHORT = 300;  // 300ms - for fast typing
+const DWORD BLOCK_TIME_NORMAL = 500; // 500ms - for normal typing
+const DWORD BLOCK_TIME_LONG = 700;   // 700ms - for careful typing
+DWORD g_CurrentBlockTime = BLOCK_TIME_NORMAL;
 
 static LONG RegSetStringValue(HKEY hKey, LPCTSTR valueName, LPCTSTR value)
 {
@@ -48,8 +63,8 @@ static void SetAutorun(BOOL autoRun)
     TCHAR moduleFileName[_MAX_PATH];
     DWORD rv;
 
-    rv = GetModuleFileName(g_hInst, moduleFileName, _MAX_PATH);
-    if (rv != ERROR_SUCCESS)
+    DWORD moduleFileNameLen = GetModuleFileName(g_hInst, moduleFileName, _MAX_PATH);
+    if (moduleFileNameLen == 0 || moduleFileNameLen >= _MAX_PATH)
     {
         return ;
     }
@@ -73,32 +88,65 @@ static BOOL IsAutorun()
 {
     HKEY  regKey;
     TCHAR moduleFileName[_MAX_PATH];
-    TCHAR regFileName   [_MAX_PATH];
-    DWORD rv;
-
-    rv = GetModuleFileName(g_hInst, moduleFileName, _MAX_PATH);
-    if (rv != ERROR_SUCCESS)
+    TCHAR regFileName[_MAX_PATH];
+    
+    // Get current module path and verify the result
+    DWORD moduleFileNameLen = GetModuleFileName(g_hInst, moduleFileName, _MAX_PATH);
+    if (moduleFileNameLen == 0 || moduleFileNameLen >= _MAX_PATH)
     {
         return FALSE;
     }
 
-    // Create provider key
-    if (RegOpenKeyEx(HKEY_CURRENT_USER, AUTORUN_KEY, 0, KEY_ALL_ACCESS, &regKey) 
+    // Open registry key with minimum required access rights
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, AUTORUN_KEY, 0, KEY_READ, &regKey) 
         != ERROR_SUCCESS)
     {
         return FALSE;
     }
 
     DWORD size = sizeof(regFileName);
+    DWORD type = 0;
     
-    if (RegQueryValueEx(regKey, TOUCHFREEZE_KEY, NULL, NULL, (LPBYTE) regFileName, &size) 
-        != ERROR_SUCCESS)
-    {
-        regFileName[0] = 0;
-    }
+    // Query registry value and verify its type
+    LONG result = RegQueryValueEx(regKey, TOUCHFREEZE_KEY, NULL, &type, 
+                                (LPBYTE)regFileName, &size);
     
     RegCloseKey(regKey);
+    
+    if (result != ERROR_SUCCESS || type != REG_SZ)
+    {
+        return FALSE;
+    }
+    
     return _tcsicmp(regFileName, moduleFileName) == 0;
+}
+
+// Registry-related functions
+static void SaveBlockTime(DWORD time)
+{
+    HKEY regKey;
+    if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
+    {
+        RegSetValueEx(regKey, _T("BlockTime"), 0, REG_DWORD, (LPBYTE)&time, sizeof(DWORD));
+        RegCloseKey(regKey);
+    }
+}
+
+static DWORD LoadBlockTime()
+{
+    HKEY regKey;
+    DWORD time = BLOCK_TIME_NORMAL;
+    DWORD size = sizeof(DWORD);
+    
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, 0, KEY_READ, &regKey) == ERROR_SUCCESS)
+    {
+        if (RegQueryValueEx(regKey, _T("BlockTime"), NULL, NULL, (LPBYTE)&time, &size) != ERROR_SUCCESS)
+        {
+            time = BLOCK_TIME_NORMAL;
+        }
+        RegCloseKey(regKey);
+    }
+    return time;
 }
 
 static void ShowContextMenu(HWND hwnd)
@@ -111,28 +159,44 @@ static void ShowContextMenu(HWND hwnd)
     else
         DeleteMenu(hMenu, ID_AUTOSTART_OFF, MF_BYCOMMAND);
 
+    // Set block time check
+    UINT checkItem = ID_BLOCKTIME_NORMAL; // Set default value
+    switch (g_CurrentBlockTime)
+    {
+    case BLOCK_TIME_SHORT:
+        checkItem = ID_BLOCKTIME_SHORT;
+        break;
+    case BLOCK_TIME_LONG:
+        checkItem = ID_BLOCKTIME_LONG;
+        break;
+    }
+    CheckMenuRadioItem(hMenuPopup, ID_BLOCKTIME_SHORT, ID_BLOCKTIME_LONG,
+                      checkItem, MF_BYCOMMAND);
+
     POINT pt;
     GetCursorPos(&pt);
- 
     SetForegroundWindow(hwnd);
-
     TrackPopupMenu(hMenuPopup, TPM_LEFTBUTTON|TPM_LEFTALIGN,
         pt.x, pt.y, 0, hwnd, NULL);
-
     PostMessage(hwnd, WM_NULL, 0, 0);
-
     DestroyMenu(hMenu);
 }
 
 static void ShowBlockedIcon(HWND hwnd)
 {
-    m_NotifyIcon.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME_BLOCKED));
+    if (!g_hIconBlocked)
+        g_hIconBlocked = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME_BLOCKED));
+    
+    m_NotifyIcon.hIcon = g_hIconBlocked;
     Shell_NotifyIcon(NIM_MODIFY, &m_NotifyIcon);
 }
 
 static void ShowNormalIcon(HWND hwnd)
 {
-    m_NotifyIcon.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
+    if (!g_hIconNormal)
+        g_hIconNormal = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
+    
+    m_NotifyIcon.hIcon = g_hIconNormal;
     Shell_NotifyIcon(NIM_MODIFY, &m_NotifyIcon);
 }
 
@@ -148,18 +212,23 @@ LRESULT CALLBACK MainWindowProc(
     case WM_CREATE:
         ZeroMemory(&m_NotifyIcon, sizeof(m_NotifyIcon));
         m_NotifyIcon.cbSize = sizeof(m_NotifyIcon);
-        m_NotifyIcon.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
+        g_hIconNormal = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
+        m_NotifyIcon.hIcon = g_hIconNormal;
         m_NotifyIcon.hWnd = hWnd;
         m_NotifyIcon.uFlags = NIF_ICON|NIF_MESSAGE|NIF_TIP;
         m_NotifyIcon.uCallbackMessage = wm_ShellNotify;
         m_NotifyIcon.uID = 1;                
         _tcscpy_s(m_NotifyIcon.szTip, sizeof(m_NotifyIcon.szTip),
-                  _T("TouchFreeze (Automatic mode)"));
+                  _T("TouchFreeze (Auto Mode)"));
         Shell_NotifyIcon(NIM_ADD, &m_NotifyIcon);
         return 0;
 
     case WM_DESTROY:
         Shell_NotifyIcon(NIM_DELETE, &m_NotifyIcon);
+        if (g_hIconNormal)
+            DestroyIcon(g_hIconNormal);
+        if (g_hIconBlocked)
+            DestroyIcon(g_hIconBlocked);
         return 0;
 
     case WM_COMMAND:
@@ -168,19 +237,31 @@ LRESULT CALLBACK MainWindowProc(
         case ID_ABOUT:
             ShowAboutDlg(g_hInst, hWnd);
             break;
-        
         case ID_EXIT:
-            PostQuitMessage(1);
+            DestroyWindow(hWnd);
+            PostQuitMessage(0);
             break;
-        
         case ID_AUTOSTART_ON:
             SetAutorun(TRUE);
             break;
-        
         case ID_AUTOSTART_OFF:
             SetAutorun(FALSE);
             break;
-
+        case ID_BLOCKTIME_SHORT:
+            g_CurrentBlockTime = BLOCK_TIME_SHORT;
+            TFHookSetBlockTime(BLOCK_TIME_SHORT);
+            SaveBlockTime(BLOCK_TIME_SHORT);
+            break;
+        case ID_BLOCKTIME_NORMAL:
+            g_CurrentBlockTime = BLOCK_TIME_NORMAL;
+            TFHookSetBlockTime(BLOCK_TIME_NORMAL);
+            SaveBlockTime(BLOCK_TIME_NORMAL);
+            break;
+        case ID_BLOCKTIME_LONG:
+            g_CurrentBlockTime = BLOCK_TIME_LONG;
+            TFHookSetBlockTime(BLOCK_TIME_LONG);
+            SaveBlockTime(BLOCK_TIME_LONG);
+            break;
         case ID_DONATE:
             ContactOrDonate(hWnd, 1);
             break;
@@ -251,6 +332,10 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR lpCmdLine, int
 
     if (!hwnd)
         return -2;
+
+    // Load block time and set
+    g_CurrentBlockTime = LoadBlockTime();
+    TFHookSetBlockTime(g_CurrentBlockTime);
 
     TFHookInstall(hwnd);
 

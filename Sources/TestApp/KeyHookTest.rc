@@ -152,18 +152,23 @@ IDR_MENU MENU
 BEGIN
     POPUP ""
     BEGIN
-        MENUITEM "About...",                    ID_ABOUT
-        MENUITEM "Load at system startup",      ID_AUTOSTART_ON
-        MENUITEM "Load at system startup",      ID_AUTOSTART_OFF, CHECKED
-        MENUITEM "Donate",                      ID_DONATE
-        MENUITEM "Exit",                        ID_EXIT
+        MENUITEM "&Auto Start",                    ID_AUTOSTART_ON
+        MENUITEM "&Disable Auto Start",            ID_AUTOSTART_OFF
+        MENUITEM SEPARATOR
+        POPUP "&Block Time"
+        BEGIN
+            MENUITEM "Fast (300ms)",               ID_BLOCKTIME_SHORT
+            MENUITEM "Normal (500ms)",             ID_BLOCKTIME_NORMAL
+            MENUITEM "Slow (700ms)",               ID_BLOCKTIME_LONG
+        END
+        MENUITEM SEPARATOR
+        MENUITEM "&About TouchFreeze...",         ID_ABOUT
+        MENUITEM "E&xit",                         ID_EXIT
     END
 END
 
 #endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////

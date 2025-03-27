@@ -129,8 +129,8 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code,
     }
     else if (timeSinceLastKey >= g_FreezeTicks && g_LastKeyTime != 0)
     {
-        // ブロック時間が終了したことを通知
-        g_LastKeyTime = 0; // リセット
+        // Notify that block time has ended
+        g_LastKeyTime = 0; // Reset
         if (g_hWnd)
             PostMessage(g_hWnd, g_nNotifyMessage, TFNT_UnBlocked, 0);
     }
@@ -174,4 +174,11 @@ HOOKDLL_API void TFHookGetStat(int * pFreezeCount)
 {
     if(pFreezeCount)
         *pFreezeCount = g_FreezeCount;
+}
+
+HOOKDLL_API void TFHookSetBlockTime(DWORD milliseconds)
+{
+    LockGlobals();
+    g_FreezeTicks = milliseconds;
+    UnlockGlobals();
 }
