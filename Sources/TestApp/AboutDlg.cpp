@@ -23,18 +23,9 @@ static BOOL CALLBACK AboutDlgProc(
         case IDOK:
             EndDialog(hWnd, IDOK);
             break;
-        case IDC_DONATE_AMAZON:
-            ContactOrDonate(hWnd, 1);
-            break;
-        
-        case IDC_EMAIL:
-            ContactOrDonate(hWnd, 2);
-            break;
-
         }
-        return TRUE;
+        break;
     }
-
     return FALSE;
 }
 

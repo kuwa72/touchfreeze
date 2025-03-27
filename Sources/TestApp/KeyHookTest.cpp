@@ -10,8 +10,6 @@
 #include <tchar.h>
 
 #define TOUCHFREEZE_KEY _T("Software\\TouchFreeze")
-#define WEBSITE_URL _T("http://touchfreeze.net")
-#define DONATE_URL _T("http://touchfreeze.net/donate")
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -50,11 +48,8 @@ static void OpenURL(HWND hwnd, LPCTSTR url)
 
 void ContactOrDonate(HWND hwnd, int type)
 {
-    switch(type)
-{
-    case 1: OpenURL(hwnd, DONATE_URL); break;
-    case 2: OpenURL(hwnd, WEBSITE_URL);  break;
-}
+    // Website and donation links removed as they are no longer active
+    return;
 }
 
 static void SetAutorun(BOOL autoRun)
