@@ -22,14 +22,19 @@
     <None Include="res\Icon.ico">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="res\KeyHookTest.ico">
+    <None Include="res\KeyHookTest.rc2">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="res\KeyHookTest.rc2">
+    <None Include="res\KeyHookTest.ico">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="KeyHookTest.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\..\..\..\..\..\Downloads\IconBlocked.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

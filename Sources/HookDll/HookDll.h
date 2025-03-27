@@ -14,6 +14,7 @@ const LPCWSTR TFHookNotifyMsg = L"TouchFreezeNotifyMessage";
 enum NotifyType
 {
     TFNT_Blocked   = 1,
+    TFNT_UnBlocked = 2
 };
 
 HOOKDLL_API int TFHookInstall     (HWND hwnd);

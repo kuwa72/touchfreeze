@@ -15,13 +15,12 @@ static char THIS_FILE[] = __FILE__;
 const UINT     wm_KBHookNotify = RegisterWindowMessage( TFHookNotifyMsg );
 const UINT     wm_ShellNotify = WM_APP + 1;
 NOTIFYICONDATA m_NotifyIcon;
-HICON          g_hIcon;
-
-HINSTANCE      g_hInst = NULL;
 
 const int IDT_HIDE_BALLOON  = 1;
 DWORD g_HideBalloonTime = 0;
 const int g_BalloonTimeout = 700; // 700 ms
+
+HINSTANCE      g_hInst = NULL;
 
 static LONG RegSetStringValue(HKEY hKey, LPCTSTR valueName, LPCTSTR value)
 {
@@ -37,10 +36,10 @@ static void OpenURL(HWND hwnd, LPCTSTR url)
 void ContactOrDonate(HWND hwnd, int type)
 {
     switch(type)
-    {
+{
     case 1: OpenURL(hwnd, DONATE_URL); break;
     case 2: OpenURL(hwnd, WEBSITE_URL);  break;
-    }
+}
 }
 
 static void SetAutorun(BOOL autoRun)
@@ -125,35 +124,16 @@ static void ShowContextMenu(HWND hwnd)
     DestroyMenu(hMenu);
 }
 
-static void ShowBallon(HWND hwnd, UINT id)
+static void ShowBlockedIcon(HWND hwnd)
 {
-    NOTIFYICONDATA notify;
-    ZeroMemory(&notify, sizeof(notify));
-    notify.cbSize = NOTIFYICONDATA_V2_SIZE;
-    notify.hWnd = hwnd;
-    notify.uID = id;
-    notify.uFlags = NIF_INFO|NIF_REALTIME | NIIF_RESPECT_QUIET_TIME;
-    notify.uTimeout = 1000;
-    notify.dwInfoFlags = NIIF_NONE | NIIF_NOSOUND;
-    _tcscpy_s(notify.szInfo, _T("Tap blocked!"));
-
-    Shell_NotifyIcon(NIM_MODIFY, &notify);
+    m_NotifyIcon.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME_BLOCKED));
+    Shell_NotifyIcon(NIM_MODIFY, &m_NotifyIcon);
 }
 
-static void HideBalllon(HWND hwnd, UINT id)
+static void ShowNormalIcon(HWND hwnd)
 {
-    NOTIFYICONDATA notify;
-    ZeroMemory(&notify, sizeof(notify));
-    notify.cbSize = NOTIFYICONDATA_V2_SIZE;
-    notify.hWnd = hwnd;
-    notify.uID = id;
-    notify.uFlags = NIF_INFO;
-    notify.uTimeout = g_BalloonTimeout;
-    notify.dwInfoFlags = NIIF_NONE | NIIF_NOSOUND;
-    _tcscpy_s(notify.szInfo, _T(""));
-    _tcscpy_s(notify.szInfoTitle, _T(""));
-
-    Shell_NotifyIcon(NIM_MODIFY, &notify);
+    m_NotifyIcon.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
+    Shell_NotifyIcon(NIM_MODIFY, &m_NotifyIcon);
 }
 
 LRESULT CALLBACK MainWindowProc(
@@ -168,7 +148,7 @@ LRESULT CALLBACK MainWindowProc(
     case WM_CREATE:
         ZeroMemory(&m_NotifyIcon, sizeof(m_NotifyIcon));
         m_NotifyIcon.cbSize = sizeof(m_NotifyIcon);
-        m_NotifyIcon.hIcon = g_hIcon;
+        m_NotifyIcon.hIcon = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
         m_NotifyIcon.hWnd = hWnd;
         m_NotifyIcon.uFlags = NIF_ICON|NIF_MESSAGE|NIF_TIP;
         m_NotifyIcon.uCallbackMessage = wm_ShellNotify;
@@ -180,18 +160,6 @@ LRESULT CALLBACK MainWindowProc(
 
     case WM_DESTROY:
         Shell_NotifyIcon(NIM_DELETE, &m_NotifyIcon);
-        return 0;
-
-    case WM_TIMER:
-        if (wParam == IDT_HIDE_BALLOON)
-        {
-            if (GetTickCount() > g_HideBalloonTime)
-            {
-                g_HideBalloonTime = 0;
-                KillTimer(hWnd, IDT_HIDE_BALLOON);
-                HideBalllon(hWnd, 1);
-            }
-        }
         return 0;
 
     case WM_COMMAND:
@@ -226,13 +194,15 @@ LRESULT CALLBACK MainWindowProc(
 
     if (uMsg == wm_KBHookNotify)
     {
-        ShowBallon(hWnd, 1);
-
-        g_HideBalloonTime = GetTickCount() + g_BalloonTimeout;
-
-        KillTimer(hWnd, IDT_HIDE_BALLOON);
-        SetTimer(hWnd, IDT_HIDE_BALLOON, g_BalloonTimeout, NULL);
-
+        switch (wParam)
+        {
+        case TFNT_Blocked:
+            ShowBlockedIcon(hWnd);
+            break;
+        case TFNT_UnBlocked:
+            ShowNormalIcon(hWnd);
+            break;
+        }
         return 0;
     }
     else if (uMsg == wm_ShellNotify)
@@ -275,9 +245,6 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR lpCmdLine, int
     wndClass.lpszClassName = WINDOW_CLASS_NAME;
     if (!RegisterClassEx(&wndClass))
         return -1;
-
-    g_hIcon = (HICON) ::LoadImage(hInst, MAKEINTRESOURCE(IDR_MAINFRAME),
-        IMAGE_ICON, 16, 16, 0);
 
     HWND hwnd = CreateWindow(WINDOW_CLASS_NAME, WINDOW_NAME, 
         WS_OVERLAPPED, 0,0,0,0, HWND_MESSAGE, NULL, hInst, NULL);

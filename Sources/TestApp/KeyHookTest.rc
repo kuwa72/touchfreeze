@@ -7,7 +7,7 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "afxres.h"
+#include "winres.h"
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
@@ -65,6 +65,7 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDR_MAINFRAME           ICON                    "res\\Icon.ico"
+IDR_MAINFRAME_BLOCKED   ICON                    "res\\IconBlocked.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -180,9 +181,8 @@ LANGUAGE 9, 1
 #pragma code_page(1252)
 #endif //_WIN32
 #include "res\KeyHookTest.rc2"  // non-Microsoft Visual C++ edited resources
-#include "afxres.rc"         // Standard components
+#include "windows.h"         // Standard components
 #endif
 
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
-

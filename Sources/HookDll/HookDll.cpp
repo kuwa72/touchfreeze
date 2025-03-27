@@ -115,8 +115,10 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code,
                               )
 {
     MSLLHOOKSTRUCT  * pMouseHS = (MSLLHOOKSTRUCT *) lParam;
+    DWORD currentTime = GetTickCount();
+    DWORD timeSinceLastKey = currentTime - g_LastKeyTime;
     
-    if ((GetTickCount() - g_LastKeyTime) < g_FreezeTicks && IsBlockMouseMessage(wParam))
+    if (timeSinceLastKey < g_FreezeTicks && IsBlockMouseMessage(wParam))
     {
         g_FreezeCount++;     
         
@@ -124,6 +126,13 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code,
             PostMessage(g_hWnd, g_nNotifyMessage, TFNT_Blocked, 0);
         
         return 1;
+    }
+    else if (timeSinceLastKey >= g_FreezeTicks && g_LastKeyTime != 0)
+    {
+        // ブロック時間が終了したことを通知
+        g_LastKeyTime = 0; // リセット
+        if (g_hWnd)
+            PostMessage(g_hWnd, g_nNotifyMessage, TFNT_UnBlocked, 0);
     }
 
     return CallNextHookEx (g_hhookMouse, code, wParam, lParam);

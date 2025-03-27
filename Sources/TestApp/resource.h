@@ -3,6 +3,7 @@
 // Used by KeyHookTest.rc
 //
 #define IDR_MAINFRAME                   128
+#define IDR_MAINFRAME_BLOCKED           131
 #define IDR_MENU                        129
 #define IDD_ABOUT                       130
 #define IDC_LIST1                       1000
