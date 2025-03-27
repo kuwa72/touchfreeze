@@ -18,7 +18,7 @@ jobs:
     
     - name: Build Solution
       run: |
-        msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform=x86
+        msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform="Win32"
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
