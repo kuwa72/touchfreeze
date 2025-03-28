@@ -18,7 +18,10 @@ jobs:
     
     - name: Build Solution
       run: |
-        msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform="Win32"
+        # Display available configurations
+        msbuild TouchFreeze.sln -pp | findstr "Release|Win32"
+        # Build the solution
+        msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform=Win32 /verbosity:minimal
     
     - name: Create Release
       uses: softprops/action-gh-release@v2

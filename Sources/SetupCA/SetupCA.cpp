@@ -8,12 +8,6 @@
 
 #include "..\TestApp\Constants.h"
 
-extern "C" __declspec(dllexport) int OpenDonatePage(MSIHANDLE hMSI)
-{
-    ShellExecute(NULL, NULL, DONATE_URL, NULL, NULL, SW_SHOWNORMAL);
-    return 0;
-}
-
 
 BOOL APIENTRY DllMain(HMODULE hModule,
     DWORD  ul_reason_for_call,
