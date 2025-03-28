@@ -24,6 +24,7 @@ jobs:
         msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform=Win32 /verbosity:minimal
         echo Find msi file in powershell and output
         powershell -Command "Get-ChildItem -Path 'Executable\bin' -Filter '*.msi' -Name"
+        echo done
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
