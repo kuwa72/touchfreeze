@@ -18,16 +18,18 @@ jobs:
     
     - name: Build Solution
       run: |
-        # Display available configurations
+        echo Display available configurations
         msbuild TouchFreeze.sln -pp | findstr "Release|Win32"
-        # Build the solution
+        echo Build the solution
         msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform=Win32 /verbosity:minimal
+        echo Find msi file in powershell and output
+        powershell -Command "Get-ChildItem -Path 'Executable\bin' -Filter '*.msi' -Name"
     
     - name: Create Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          Sources/Setup/bin/Release/TouchFreeze.msi
+          Executable/bin/TouchFreeze.msi
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
