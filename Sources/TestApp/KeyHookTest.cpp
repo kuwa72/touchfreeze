@@ -257,8 +257,14 @@ static void ShowContextMenu(HWND hwnd)
     DestroyMenu(hMenu);
 }
 
+static BOOL g_bCurrentIconIsBlocked = FALSE;
+
 static void ShowBlockedIcon(HWND hwnd)
 {
+    if (g_bCurrentIconIsBlocked)
+        return;
+    g_bCurrentIconIsBlocked = TRUE;
+
     if (!g_hIconBlocked)
         g_hIconBlocked = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME_BLOCKED));
     
@@ -268,12 +274,17 @@ static void ShowBlockedIcon(HWND hwnd)
 
 static void ShowNormalIcon(HWND hwnd)
 {
+    if (!g_bCurrentIconIsBlocked)
+        return;
+    g_bCurrentIconIsBlocked = FALSE;
+
     if (!g_hIconNormal)
         g_hIconNormal = LoadIcon(g_hInst, MAKEINTRESOURCE(IDR_MAINFRAME));
     
     m_NotifyIcon.hIcon = g_hIconNormal;
     Shell_NotifyIcon(NIM_MODIFY, &m_NotifyIcon);
 }
+
 
 LRESULT CALLBACK MainWindowProc(
    HWND hWnd,

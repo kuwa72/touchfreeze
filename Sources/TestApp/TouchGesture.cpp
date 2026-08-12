@@ -46,9 +46,15 @@ static double g_LastDeltaX = 0.0;
 static double g_LastDeltaY = 0.0;
 static double g_LastDeltaDist = 0.0;
 
-static void TouchGesture_AddLog(LPCTSTR format, ...)
+extern HWND g_hMonitorDlg;
+
+void TouchGesture_AddLog(LPCTSTR format, ...)
 {
+    if (!g_hMonitorDlg || !IsWindow(g_hMonitorDlg))
+        return;
+
     TCHAR szMsg[256];
+
     va_list args;
     va_start(args, format);
     _vstprintf_s(szMsg, sizeof(szMsg)/sizeof(TCHAR), format, args);
@@ -213,6 +219,16 @@ BOOL TouchGesture_Init(HWND hWnd)
     return TRUE;
 }
 
+struct TouchDevCache
+{
+    HANDLE hDevice;
+    PHIDP_PREPARSED_DATA pPreparsedData;
+    ULONG minX, maxX, minY, maxY;
+    BOOL valid;
+};
+
+static TouchDevCache g_DevCache = { NULL, NULL, 0, 1, 0, 1, FALSE };
+
 void TouchGesture_Uninit(HWND hWnd)
 {
     KillTimer(hWnd, 99);
@@ -239,35 +255,36 @@ void TouchGesture_Uninit(HWND hWnd)
 
     RegisterRawInputDevices(rid, 2, sizeof(RAWINPUTDEVICE));
     g_hWndTarget = NULL;
+
+    if (g_DevCache.pPreparsedData)
+    {
+        delete[] (BYTE*)g_DevCache.pPreparsedData;
+        g_DevCache.pPreparsedData = NULL;
+    }
+    g_DevCache.valid = FALSE;
+    g_DevCache.hDevice = NULL;
 }
 
-static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
+static TouchDevCache* GetDevCache(HANDLE hDevice)
 {
-    if (!g_bEnabled || g_ZoneMode == PAD_ZONE_DISABLED)
-        return;
 
-    DWORD now = GetTickCount();
-
-    // Honor TouchFreeze palm rejection state machine
-    if (TouchGesture_ShouldBlockMouse())
+    if (g_DevCache.valid && g_DevCache.hDevice == hDevice)
     {
-        if (g_bRightDragLatched)
-        {
-            SendRightButtonInput(MOUSEEVENTF_RIGHTUP);
-            TFHookSetRightDragActive(FALSE);
-            g_bRightDragLatched = FALSE;
-            g_GestureState = GESTURE_STATE_IDLE;
-        }
-        g_bTouchActive = FALSE;
-        return;
+        return &g_DevCache;
     }
 
-    if (pRawInput->header.dwType != RIM_TYPEHID)
-        return;
+    if (g_DevCache.pPreparsedData)
+    {
+        delete[] (BYTE*)g_DevCache.pPreparsedData;
+        g_DevCache.pPreparsedData = NULL;
+    }
+
+    g_DevCache.hDevice = hDevice;
+    g_DevCache.valid = FALSE;
 
     UINT preparsedSize = 0;
     if (GetRawInputDeviceInfo(hDevice, RIDI_PREPARSEDDATA, NULL, &preparsedSize) != 0 || preparsedSize == 0)
-        return;
+        return NULL;
 
     BYTE* pPreparsedBuffer = new BYTE[preparsedSize];
     PHIDP_PREPARSED_DATA pPreparsedData = (PHIDP_PREPARSED_DATA)pPreparsedBuffer;
@@ -275,7 +292,7 @@ static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
     if (GetRawInputDeviceInfo(hDevice, RIDI_PREPARSEDDATA, pPreparsedData, &preparsedSize) == (UINT)-1)
     {
         delete[] pPreparsedBuffer;
-        return;
+        return NULL;
     }
 
     HIDP_CAPS caps;
@@ -303,83 +320,124 @@ static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
                     }
                 }
             }
-
-            ULONG rawX = 0, rawY = 0;
-            BOOL hasX = FALSE, hasY = FALSE;
-
-            if (HidP_GetUsageValue(HidP_Input, 0x01, 0, 0x30, &rawX, pPreparsedData, (PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS)
-            {
-                hasX = TRUE;
-            }
-            if (HidP_GetUsageValue(HidP_Input, 0x01, 0, 0x31, &rawY, pPreparsedData, (PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS)
-            {
-                hasY = TRUE;
-            }
-
-            if (maxX > minX && maxY > minY && (hasX || hasY))
-            {
-                g_LastTouchTime = now;
-                g_RawX = rawX;
-                g_RawY = rawY;
-                g_MinX = minX;
-                g_MaxX = maxX;
-                g_MinY = minY;
-                g_MaxY = maxY;
-                g_hLastDevice = hDevice;
-
-                double ratioX = (double)(rawX - minX) / (double)(maxX - minX);
-                double ratioY = (double)(rawY - minY) / (double)(maxY - minY);
-                
-                double deltaX = (g_LastRatioX >= 0) ? (ratioX - g_LastRatioX) : 0.0;
-                double deltaY = (g_LastRatioY >= 0) ? (ratioY - g_LastRatioY) : 0.0;
-                double deltaDist = sqrt(deltaX * deltaX + deltaY * deltaY);
-                g_LastDeltaX = deltaX;
-                g_LastDeltaY = deltaY;
-                g_LastDeltaDist = deltaDist;
-
-                g_LastRatioX = ratioX;
-                g_LastRatioY = ratioY;
-
-                // Check First Landing Point for new touch stroke
-                if (!g_bTouchActive)
-                {
-                    g_bTouchActive = TRUE;
-                    if (IsInPhysicalZone(ratioX, ratioY))
-                    {
-                        g_bRightDragLatched = TRUE;
-                        g_bInvalidStroke = FALSE;
-                        g_GestureState = GESTURE_STATE_DRAGGING;
-                        SendRightButtonInput(MOUSEEVENTF_RIGHTDOWN);
-                        TFHookSetRightDragActive(TRUE);
-                        OutputDebugString(_T("[TouchFreeze] First touch landed in Zone: LATCHED & RIGHTDOWN\n"));
-                        TouchGesture_AddLog(_T("Touch Landed (In Zone X:%.2f, Y:%.2f) -> Right Down"), ratioX, ratioY);
-                    }
-                    else
-                    {
-                        g_bInvalidStroke = TRUE;
-                        g_bRightDragLatched = FALSE;
-                        OutputDebugString(_T("[TouchFreeze] First touch landed outside zone: Stroke Invalidated\n"));
-                        TouchGesture_AddLog(_T("Touch Landed (Out Zone X:%.2f, Y:%.2f) -> Normal Touch"), ratioX, ratioY);
-                    }
-                }
-                else
-                {
-                    if (!g_bInvalidStroke && !g_bRightDragLatched && IsInPhysicalZone(ratioX, ratioY))
-                    {
-                        g_bRightDragLatched = TRUE;
-                        g_GestureState = GESTURE_STATE_DRAGGING;
-                        SendRightButtonInput(MOUSEEVENTF_RIGHTDOWN);
-                        TFHookSetRightDragActive(TRUE);
-                        TouchGesture_AddLog(_T("Moved Into Zone -> Right Down"));
-                    }
-                }
-            }
+            g_DevCache.minX = minX;
+            g_DevCache.maxX = maxX;
+            g_DevCache.minY = minY;
+            g_DevCache.maxY = maxY;
+            g_DevCache.pPreparsedData = pPreparsedData;
+            g_DevCache.valid = TRUE;
         }
-
         delete[] valueCaps;
     }
 
-    delete[] pPreparsedBuffer;
+    if (!g_DevCache.valid)
+    {
+        delete[] pPreparsedBuffer;
+        return NULL;
+    }
+
+    return &g_DevCache;
+}
+
+static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
+{
+    if (!g_bEnabled || g_ZoneMode == PAD_ZONE_DISABLED)
+        return;
+
+    DWORD now = GetTickCount();
+
+    // Honor TouchFreeze palm rejection state machine
+    if (TouchGesture_ShouldBlockMouse())
+    {
+        if (g_bRightDragLatched)
+        {
+            SendRightButtonInput(MOUSEEVENTF_RIGHTUP);
+            TFHookSetRightDragActive(FALSE);
+            g_bRightDragLatched = FALSE;
+            g_GestureState = GESTURE_STATE_IDLE;
+        }
+        g_bTouchActive = FALSE;
+        return;
+    }
+
+    if (pRawInput->header.dwType != RIM_TYPEHID)
+        return;
+
+    TouchDevCache* pCache = GetDevCache(hDevice);
+    if (!pCache || !pCache->valid)
+        return;
+
+    ULONG rawX = 0, rawY = 0;
+    BOOL hasX = (HidP_GetUsageValue(HidP_Input, 0x01, 0, 0x30, &rawX, pCache->pPreparsedData, (PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS);
+    BOOL hasY = (HidP_GetUsageValue(HidP_Input, 0x01, 0, 0x31, &rawY, pCache->pPreparsedData, (PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS);
+
+    ULONG minX = pCache->minX, maxX = pCache->maxX;
+    ULONG minY = pCache->minY, maxY = pCache->maxY;
+
+    if (maxX > minX && maxY > minY && (hasX || hasY))
+    {
+        if (g_bTouchActive && rawX == g_RawX && rawY == g_RawY)
+        {
+            g_LastTouchTime = now;
+            return;
+        }
+
+        g_LastTouchTime = now;
+        g_RawX = rawX;
+        g_RawY = rawY;
+        g_MinX = minX;
+        g_MaxX = maxX;
+        g_MinY = minY;
+        g_MaxY = maxY;
+        g_hLastDevice = hDevice;
+
+        double ratioX = (double)(rawX - minX) / (double)(maxX - minX);
+        double ratioY = (double)(rawY - minY) / (double)(maxY - minY);
+        
+        double deltaX = (g_LastRatioX >= 0) ? (ratioX - g_LastRatioX) : 0.0;
+        double deltaY = (g_LastRatioY >= 0) ? (ratioY - g_LastRatioY) : 0.0;
+        double deltaDist = sqrt(deltaX * deltaX + deltaY * deltaY);
+        g_LastDeltaX = deltaX;
+        g_LastDeltaY = deltaY;
+        g_LastDeltaDist = deltaDist;
+
+        g_LastRatioX = ratioX;
+        g_LastRatioY = ratioY;
+
+        // Check First Landing Point for new touch stroke
+        if (!g_bTouchActive)
+        {
+            g_bTouchActive = TRUE;
+            if (IsInPhysicalZone(ratioX, ratioY))
+            {
+                g_bRightDragLatched = TRUE;
+                g_bInvalidStroke = FALSE;
+                g_GestureState = GESTURE_STATE_DRAGGING;
+                SendRightButtonInput(MOUSEEVENTF_RIGHTDOWN);
+                TFHookSetRightDragActive(TRUE);
+                OutputDebugString(_T("[TouchFreeze] First touch landed in Zone: LATCHED & RIGHTDOWN\n"));
+                TouchGesture_AddLog(_T("Touch Landed (In Zone X:%.2f, Y:%.2f) -> Right Down"), ratioX, ratioY);
+            }
+            else
+            {
+                g_bInvalidStroke = TRUE;
+                g_bRightDragLatched = FALSE;
+                OutputDebugString(_T("[TouchFreeze] First touch landed outside zone: Stroke Invalidated\n"));
+                TouchGesture_AddLog(_T("Touch Landed (Out Zone X:%.2f, Y:%.2f) -> Normal Touch"), ratioX, ratioY);
+            }
+        }
+        else
+        {
+            if (!g_bInvalidStroke && !g_bRightDragLatched && IsInPhysicalZone(ratioX, ratioY))
+            {
+                g_bRightDragLatched = TRUE;
+                g_GestureState = GESTURE_STATE_DRAGGING;
+                SendRightButtonInput(MOUSEEVENTF_RIGHTDOWN);
+                TFHookSetRightDragActive(TRUE);
+                TouchGesture_AddLog(_T("Moved Into Zone -> Right Down"));
+            }
+        }
+    }
 }
 
 BOOL TouchGesture_HandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -402,13 +460,17 @@ BOOL TouchGesture_HandleMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
             GetRawInputData((HRAWINPUT)lParam, RID_INPUT, NULL, &dwSize, sizeof(RAWINPUTHEADER));
             if (dwSize > 0)
             {
-                BYTE* lpb = new BYTE[dwSize];
+                BYTE stackBuf[512];
+                BYTE* lpb = (dwSize <= sizeof(stackBuf)) ? stackBuf : new BYTE[dwSize];
                 if (GetRawInputData((HRAWINPUT)lParam, RID_INPUT, lpb, &dwSize, sizeof(RAWINPUTHEADER)) == dwSize)
                 {
                     PRAWINPUT raw = (PRAWINPUT)lpb;
                     ProcessHIDRawInput(raw->header.hDevice, raw);
                 }
-                delete[] lpb;
+                if (lpb != stackBuf)
+                {
+                    delete[] lpb;
+                }
             }
         }
         break;

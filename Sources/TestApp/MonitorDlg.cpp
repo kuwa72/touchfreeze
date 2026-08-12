@@ -194,6 +194,8 @@ static void RefreshMonitorUI(HWND hWnd)
     }
 }
 
+HWND g_hMonitorDlg = NULL;
+
 static INT_PTR CALLBACK MonitorDlgProc(
    HWND hWnd,
    UINT uMsg,
@@ -204,13 +206,14 @@ static INT_PTR CALLBACK MonitorDlgProc(
     {
     case WM_INITDIALOG:
         {
+            g_hMonitorDlg = hWnd;
             HWND hPreview = GetDlgItem(hWnd, IDC_MONITOR_PREVIEW);
             if (hPreview)
             {
                 g_pOldMonitorPreviewProc = (WNDPROC)SetWindowLongPtr(hPreview, GWLP_WNDPROC, (LONG_PTR)MonitorPreviewProc);
             }
             g_LastSyncedLogCount = -1;
-            SetTimer(hWnd, 102, 50, NULL); // 50ms refresh rate
+            SetTimer(hWnd, 102, 80, NULL); // 80ms refresh rate
             RefreshMonitorUI(hWnd);
 
             // Bring dialog to front and focus to prevent clicks passing through to background windows
@@ -239,6 +242,7 @@ static INT_PTR CALLBACK MonitorDlgProc(
         case IDOK:
         case IDCANCEL:
             KillTimer(hWnd, 102);
+            g_hMonitorDlg = NULL;
             EndDialog(hWnd, LOWORD(wParam));
             break;
         }
@@ -246,6 +250,7 @@ static INT_PTR CALLBACK MonitorDlgProc(
 
     case WM_CLOSE:
         KillTimer(hWnd, 102);
+        g_hMonitorDlg = NULL;
         EndDialog(hWnd, IDCANCEL);
         break;
     }
@@ -267,8 +272,10 @@ void ShowMonitorDlg(HINSTANCE hInst, HWND hwndParent)
             _stprintf_s(szErr, _T("Failed to create Monitor dialog. Error Code: %lu"), dwErr);
             MessageBox(NULL, szErr, _T("TouchFreeze Diagnostic Error"), MB_OK | MB_ICONERROR);
         }
+        g_hMonitorDlg = NULL;
         isMonitorVisible = FALSE;
     }
 }
+
 
 

@@ -67,20 +67,19 @@ static void UnlockGlobals()
     ::ReleaseMutex(g_hMutex);
 }
 
-static bool IgnoredKey(DWORD vk)
+static inline bool IgnoredKey(DWORD vk)
 {
-    static DWORD ignoreKeys[] = {
-        VK_CONTROL, VK_RCONTROL, VK_LCONTROL,
-        VK_MENU,    VK_RMENU,    VK_LMENU,
-        VK_SHIFT,   VK_RSHIFT,   VK_LSHIFT};
-    for (int i = 0;i < sizeof(ignoreKeys)/sizeof(ignoreKeys[0]); i++)
+    switch (vk)
     {
-        if (ignoreKeys[i] == vk)
-            return true;
+    case VK_CONTROL: case VK_RCONTROL: case VK_LCONTROL:
+    case VK_MENU:    case VK_RMENU:    case VK_LMENU:
+    case VK_SHIFT:   case VK_RSHIFT:   case VK_LSHIFT:
+        return true;
+    default:
+        return false;
     }
-    
-    return false;
 }
+
 
 __declspec(dllexport) LRESULT CALLBACK KeyboardHookProc( int code, 
                               WPARAM wParam, 
@@ -112,22 +111,20 @@ __declspec(dllexport) LRESULT CALLBACK KeyboardHookProc( int code,
     return CallNextHookEx (g_hhookKeyboard, code, wParam, lParam);
 }
 
-static bool IsBlockMouseMessage(UINT msg)
+static inline bool IsBlockMouseMessage(UINT msg)
 {
-    static UINT ignoreMsgs[] = {
-        WM_LBUTTONDOWN,   WM_MBUTTONDOWN,   WM_RBUTTONDOWN,
-        WM_LBUTTONUP,     WM_MBUTTONUP,     WM_RBUTTONUP,
-        WM_LBUTTONDBLCLK, WM_MBUTTONDBLCLK, WM_RBUTTONDBLCLK,
-    };
-   
-    for (int i = 0;i < sizeof(ignoreMsgs)/sizeof(ignoreMsgs[0]); i++)
+    switch (msg)
     {
-        if (ignoreMsgs[i] == msg)
-            return true;
+    case WM_LBUTTONDOWN: case WM_MBUTTONDOWN: case WM_RBUTTONDOWN:
+    case WM_LBUTTONUP:   case WM_MBUTTONUP:   case WM_RBUTTONUP:
+    case WM_LBUTTONDBLCLK: case WM_MBUTTONDBLCLK: case WM_RBUTTONDBLCLK:
+        return true;
+    default:
+        return false;
     }
-    
-    return false;
 }
+
+static BOOL g_bLastNotifiedBlocked = FALSE;
 
 __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code, 
                               WPARAM wParam, 
@@ -147,23 +144,28 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code,
 
     DWORD currentTime = GetTickCount();
     DWORD timeSinceLastKey = currentTime - g_LastKeyTime;
-    BOOL bShouldBlock = g_bOverrideBlocked || (timeSinceLastKey < g_FreezeTicks);
+    BOOL bShouldBlock = g_bOverrideBlocked || (g_LastKeyTime != 0 && timeSinceLastKey < g_FreezeTicks);
     
     if (bShouldBlock && IsBlockMouseMessage((UINT)wParam))
     {
         g_FreezeCount++;     
         
-        if (g_hWnd)
+        if (g_hWnd && !g_bLastNotifiedBlocked)
+        {
+            g_bLastNotifiedBlocked = TRUE;
             PostMessage(g_hWnd, g_nNotifyMessage, TFNT_Blocked, 0);
+        }
         
         return 1;
     }
     else if (!bShouldBlock && g_LastKeyTime != 0)
     {
-        // Notify that block time has ended
         g_LastKeyTime = 0; // Reset
-        if (g_hWnd)
+        if (g_hWnd && g_bLastNotifiedBlocked)
+        {
+            g_bLastNotifiedBlocked = FALSE;
             PostMessage(g_hWnd, g_nNotifyMessage, TFNT_UnBlocked, 0);
+        }
     }
 
     return CallNextHookEx (g_hhookMouse, code, wParam, lParam);
@@ -209,16 +211,12 @@ HOOKDLL_API void TFHookGetStat(int * pFreezeCount)
 
 HOOKDLL_API void TFHookSetBlockTime(DWORD milliseconds)
 {
-    LockGlobals();
     g_FreezeTicks = milliseconds;
-    UnlockGlobals();
 }
 
 HOOKDLL_API void TFHookSetSuppressOSGesture(BOOL bSuppress)
 {
-    LockGlobals();
     g_bSuppressOSGesture = bSuppress;
-    UnlockGlobals();
 }
 
 HOOKDLL_API BOOL TFHookGetSuppressOSGesture()
@@ -228,9 +226,7 @@ HOOKDLL_API BOOL TFHookGetSuppressOSGesture()
 
 HOOKDLL_API void TFHookSetRightDragZone(int mode)
 {
-    LockGlobals();
     g_RightDragZoneMode = mode;
-    UnlockGlobals();
 }
 
 HOOKDLL_API int TFHookGetRightDragZone()
@@ -240,9 +236,7 @@ HOOKDLL_API int TFHookGetRightDragZone()
 
 HOOKDLL_API void TFHookSetRightDragActive(BOOL bActive)
 {
-    LockGlobals();
     g_bRightDragActive = bActive;
-    UnlockGlobals();
 }
 
 HOOKDLL_API BOOL TFHookGetRightDragActive()
@@ -268,9 +262,7 @@ HOOKDLL_API DWORD TFHookGetLastVkCode()
 
 HOOKDLL_API void TFHookSetOverrideBlocked(BOOL bBlocked)
 {
-    LockGlobals();
     g_bOverrideBlocked = bBlocked;
-    UnlockGlobals();
 }
 
 HOOKDLL_API BOOL TFHookGetOverrideBlocked()
