@@ -5,6 +5,7 @@ TouchFreeze is a Windows utility that automatically disables your laptop's touch
 ## Features
 
 - Automatically disables touchpad input while typing
+- Configurable Right Drag Zone (Right 1/3, Right 1/2, Top-Right, Bottom-Right, Anywhere) for easy right-drag operations
 - Runs silently in the system tray
 - Minimal resource usage
 - Auto-start with Windows option
@@ -33,6 +34,7 @@ TouchFreeze is a Windows utility that automatically disables your laptop's touch
   - Blocked icon: Touchpad is temporarily disabled while typing
 - Right-click the system tray icon for options:
   - Enable/Disable auto-start
+  - Configure Right Drag Zone (Right 1/3, Top-Right, etc.)
   - Access settings
   - View about information
   - Exit the application

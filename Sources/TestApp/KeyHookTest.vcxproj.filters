@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="Resource Files">
@@ -9,14 +9,18 @@
   <ItemGroup>
     <ClCompile Include="StdAfx.cpp" />
     <ClCompile Include="AboutDlg.cpp" />
+    <ClCompile Include="MonitorDlg.cpp" />
+    <ClCompile Include="TouchGesture.cpp" />
     <ClCompile Include="KeyHookTest.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AboutDlg.h" />
     <ClInclude Include="Constants.h" />
     <ClInclude Include="KeyHookTest.h" />
+    <ClInclude Include="MonitorDlg.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="StdAfx.h" />
+    <ClInclude Include="TouchGesture.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="res\Icon.ico">

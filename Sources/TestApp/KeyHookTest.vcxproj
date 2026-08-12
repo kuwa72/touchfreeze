@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -132,6 +132,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="AboutDlg.cpp" />
+    <ClCompile Include="MonitorDlg.cpp" />
+    <ClCompile Include="TouchGesture.cpp" />
     <ClCompile Include="KeyHookTest.cpp">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Disabled</Optimization>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -160,8 +162,10 @@
     <ClInclude Include="AboutDlg.h" />
     <ClInclude Include="Constants.h" />
     <ClInclude Include="KeyHookTest.h" />
+    <ClInclude Include="MonitorDlg.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="StdAfx.h" />
+    <ClInclude Include="TouchGesture.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="res\Icon.ico" />

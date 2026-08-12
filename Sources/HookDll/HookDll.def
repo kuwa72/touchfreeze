@@ -1,3 +1,16 @@
  EXPORTS
          KeyboardHookProc
          MouseHookProc
+         TFHookSetSuppressOSGesture
+         TFHookGetSuppressOSGesture
+         TFHookSetRightDragZone
+         TFHookGetRightDragZone
+         TFHookSetRightDragActive
+         TFHookGetRightDragActive
+         TFHookIsBlocked
+         TFHookGetLastKeyTime
+         TFHookGetLastVkCode
+         TFHookSetOverrideBlocked
+         TFHookGetOverrideBlocked
+
+

@@ -14,6 +14,12 @@ HWND                g_hWnd          = NULL;
 DWORD               g_LastKeyTime   = 0;
 DWORD               g_FreezeCount   = 0;
 DWORD               g_FreezeTicks   = 700;
+BOOL                g_bSuppressOSGesture = FALSE;
+int                 g_RightDragZoneMode = ZONE_DISABLED;
+BOOL                g_bConvertedRightDrag = FALSE;
+DWORD               g_LastVkCode    = 0;
+BOOL                g_bRightDragActive  = FALSE;
+BOOL                g_bOverrideBlocked = FALSE;
 #pragma data_seg()
 
 HANDLE              g_hMutex = NULL;
@@ -86,8 +92,22 @@ __declspec(dllexport) LRESULT CALLBACK KeyboardHookProc( int code,
     if (code < 0) 
         return CallNextHookEx (g_hhookKeyboard, code, wParam, lParam);
     
+    if (g_bSuppressOSGesture)
+    {
+        DWORD vk = pkbhs->vkCode;
+        if (vk == VK_LWIN || vk == VK_RWIN || vk == VK_TAB || 
+            vk == VK_MENU || vk == VK_LMENU || vk == VK_RMENU ||
+            vk == 'D' || vk == 'S')
+        {
+            return 1; // Suppress OS touchpad gesture keys (Win+Tab, Alt+Tab, Win+D, etc.)
+        }
+    }
+
     if ((pkbhs->flags & LLKHF_INJECTED) == 0 && !IgnoredKey(pkbhs->vkCode))
-      g_LastKeyTime = GetTickCount();
+    {
+        g_LastKeyTime = GetTickCount();
+        g_LastVkCode = pkbhs->vkCode;
+    }
 
     return CallNextHookEx (g_hhookKeyboard, code, wParam, lParam);
 }
@@ -115,10 +135,21 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code,
                               )
 {
     MSLLHOOKSTRUCT  * pMouseHS = (MSLLHOOKSTRUCT *) lParam;
+
+    // Block physical Left click during active Right Drag (prevents LButton+RButton collision)
+    if (g_bRightDragActive && ((pMouseHS->flags & LLMHF_INJECTED) == 0))
+    {
+        if (wParam == WM_LBUTTONDOWN || wParam == WM_LBUTTONUP || wParam == WM_LBUTTONDBLCLK)
+        {
+            return 1;
+        }
+    }
+
     DWORD currentTime = GetTickCount();
     DWORD timeSinceLastKey = currentTime - g_LastKeyTime;
+    BOOL bShouldBlock = g_bOverrideBlocked || (timeSinceLastKey < g_FreezeTicks);
     
-    if (timeSinceLastKey < g_FreezeTicks && IsBlockMouseMessage(wParam))
+    if (bShouldBlock && IsBlockMouseMessage((UINT)wParam))
     {
         g_FreezeCount++;     
         
@@ -127,7 +158,7 @@ __declspec(dllexport) LRESULT CALLBACK MouseHookProc( int code,
         
         return 1;
     }
-    else if (timeSinceLastKey >= g_FreezeTicks && g_LastKeyTime != 0)
+    else if (!bShouldBlock && g_LastKeyTime != 0)
     {
         // Notify that block time has ended
         g_LastKeyTime = 0; // Reset
@@ -181,4 +212,68 @@ HOOKDLL_API void TFHookSetBlockTime(DWORD milliseconds)
     LockGlobals();
     g_FreezeTicks = milliseconds;
     UnlockGlobals();
+}
+
+HOOKDLL_API void TFHookSetSuppressOSGesture(BOOL bSuppress)
+{
+    LockGlobals();
+    g_bSuppressOSGesture = bSuppress;
+    UnlockGlobals();
+}
+
+HOOKDLL_API BOOL TFHookGetSuppressOSGesture()
+{
+    return g_bSuppressOSGesture;
+}
+
+HOOKDLL_API void TFHookSetRightDragZone(int mode)
+{
+    LockGlobals();
+    g_RightDragZoneMode = mode;
+    UnlockGlobals();
+}
+
+HOOKDLL_API int TFHookGetRightDragZone()
+{
+    return g_RightDragZoneMode;
+}
+
+HOOKDLL_API void TFHookSetRightDragActive(BOOL bActive)
+{
+    LockGlobals();
+    g_bRightDragActive = bActive;
+    UnlockGlobals();
+}
+
+HOOKDLL_API BOOL TFHookGetRightDragActive()
+{
+    return g_bRightDragActive;
+}
+
+HOOKDLL_API BOOL TFHookIsBlocked()
+{
+    DWORD currentTime = GetTickCount();
+    return (g_LastKeyTime != 0 && currentTime - g_LastKeyTime < g_FreezeTicks);
+}
+
+HOOKDLL_API DWORD TFHookGetLastKeyTime()
+{
+    return g_LastKeyTime;
+}
+
+HOOKDLL_API DWORD TFHookGetLastVkCode()
+{
+    return g_LastVkCode;
+}
+
+HOOKDLL_API void TFHookSetOverrideBlocked(BOOL bBlocked)
+{
+    LockGlobals();
+    g_bOverrideBlocked = bBlocked;
+    UnlockGlobals();
+}
+
+HOOKDLL_API BOOL TFHookGetOverrideBlocked()
+{
+    return g_bOverrideBlocked;
 }

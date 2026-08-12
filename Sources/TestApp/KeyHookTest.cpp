@@ -4,8 +4,10 @@
 #include "stdafx.h"
 #include "..\HookDll\HookDll.h"
 #include "AboutDlg.h"
+#include "MonitorDlg.h"
 #include "resource.h"
 #include "Constants.h"
+#include "TouchGesture.h"
 #include <shellapi.h>
 #include <tchar.h>
 
@@ -34,6 +36,9 @@ const DWORD BLOCK_TIME_SHORT = 300;  // 300ms - for fast typing
 const DWORD BLOCK_TIME_NORMAL = 500; // 500ms - for normal typing
 const DWORD BLOCK_TIME_LONG = 700;   // 700ms - for careful typing
 DWORD g_CurrentBlockTime = BLOCK_TIME_NORMAL;
+
+int g_CurrentRightDragZone = ZONE_RIGHT_THIRD;
+BOOL g_AllowSingleFingerMove = TRUE;
 
 static LONG RegSetStringValue(HKEY hKey, LPCTSTR valueName, LPCTSTR value)
 {
@@ -144,6 +149,62 @@ static DWORD LoadBlockTime()
     return time;
 }
 
+static void SaveRightDragZone(int mode)
+{
+    HKEY regKey;
+    if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
+    {
+        DWORD val = (DWORD)mode;
+        RegSetValueEx(regKey, _T("RightDragZone"), 0, REG_DWORD, (LPBYTE)&val, sizeof(DWORD));
+        RegCloseKey(regKey);
+    }
+}
+
+static int LoadRightDragZone()
+{
+    HKEY regKey;
+    DWORD val = ZONE_RIGHT_THIRD;
+    DWORD size = sizeof(DWORD);
+    
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, 0, KEY_READ, &regKey) == ERROR_SUCCESS)
+    {
+        if (RegQueryValueEx(regKey, _T("RightDragZone"), NULL, NULL, (LPBYTE)&val, &size) != ERROR_SUCCESS)
+        {
+            val = ZONE_RIGHT_THIRD;
+        }
+        RegCloseKey(regKey);
+    }
+    return (int)val;
+}
+
+static void SaveAllowSingleFinger(BOOL bAllow)
+{
+    HKEY regKey;
+    if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
+    {
+        DWORD val = bAllow ? 1 : 0;
+        RegSetValueEx(regKey, _T("AllowSingleFingerMove"), 0, REG_DWORD, (LPBYTE)&val, sizeof(DWORD));
+        RegCloseKey(regKey);
+    }
+}
+
+static BOOL LoadAllowSingleFinger()
+{
+    HKEY regKey;
+    DWORD val = 1;
+    DWORD size = sizeof(DWORD);
+    
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, 0, KEY_READ, &regKey) == ERROR_SUCCESS)
+    {
+        if (RegQueryValueEx(regKey, _T("AllowSingleFingerMove"), NULL, NULL, (LPBYTE)&val, &size) != ERROR_SUCCESS)
+        {
+            val = 1;
+        }
+        RegCloseKey(regKey);
+    }
+    return (val != 0);
+}
+
 static void ShowContextMenu(HWND hwnd)
 {
     HMENU hMenu = LoadMenu(g_hInst, MAKEINTRESOURCE(IDR_MENU));
@@ -167,6 +228,25 @@ static void ShowContextMenu(HWND hwnd)
     }
     CheckMenuRadioItem(hMenuPopup, ID_BLOCKTIME_SHORT, ID_BLOCKTIME_LONG,
                       checkItem, MF_BYCOMMAND);
+
+    // Set right drag zone check
+    UINT zoneItem = ID_ZONE_RIGHT_THIRD;
+    switch (g_CurrentRightDragZone)
+    {
+    case PAD_ZONE_DISABLED:     zoneItem = ID_ZONE_DISABLED; break;
+    case PAD_ZONE_ANYWHERE:     zoneItem = ID_ZONE_ANYWHERE; break;
+    case PAD_ZONE_RIGHT_THIRD:  zoneItem = ID_ZONE_RIGHT_THIRD; break;
+    case PAD_ZONE_RIGHT_HALF:   zoneItem = ID_ZONE_RIGHT_HALF; break;
+    case PAD_ZONE_TOP_RIGHT:    zoneItem = ID_ZONE_TOP_RIGHT; break;
+    case PAD_ZONE_BOTTOM_RIGHT: zoneItem = ID_ZONE_BOTTOM_RIGHT; break;
+    }
+    
+    // CheckMenuRadioItem works recursively across submenus when given correct min/max IDs
+    CheckMenuRadioItem(hMenuPopup, ID_ZONE_DISABLED, ID_ZONE_BOTTOM_RIGHT,
+                      zoneItem, MF_BYCOMMAND);
+
+    CheckMenuItem(hMenuPopup, ID_ALLOW_SINGLE_FINGER,
+                  g_AllowSingleFingerMove ? MF_CHECKED : MF_UNCHECKED);
 
     POINT pt;
     GetCursorPos(&pt);
@@ -202,6 +282,9 @@ LRESULT CALLBACK MainWindowProc(
    LPARAM lParam 
 )
 {
+    if (TouchGesture_HandleMessage(hWnd, uMsg, wParam, lParam))
+        return 0;
+
     switch(uMsg)
     {
     case WM_CREATE:
@@ -216,9 +299,11 @@ LRESULT CALLBACK MainWindowProc(
         _tcscpy_s(m_NotifyIcon.szTip, sizeof(m_NotifyIcon.szTip),
                   _T("TouchFreeze (Auto Mode)"));
         Shell_NotifyIcon(NIM_ADD, &m_NotifyIcon);
+        TouchGesture_Init(hWnd);
         return 0;
 
     case WM_DESTROY:
+        TouchGesture_Uninit(hWnd);
         Shell_NotifyIcon(NIM_DELETE, &m_NotifyIcon);
         if (g_hIconNormal)
             DestroyIcon(g_hIconNormal);
@@ -229,6 +314,9 @@ LRESULT CALLBACK MainWindowProc(
     case WM_COMMAND:
         switch(LOWORD(wParam))
         {
+        case ID_MONITOR:
+            ShowMonitorDlg(g_hInst, hWnd);
+            break;
         case ID_ABOUT:
             ShowAboutDlg(g_hInst, hWnd);
             break;
@@ -245,17 +333,46 @@ LRESULT CALLBACK MainWindowProc(
         case ID_BLOCKTIME_SHORT:
             g_CurrentBlockTime = BLOCK_TIME_SHORT;
             TFHookSetBlockTime(BLOCK_TIME_SHORT);
+            TouchGesture_SetPalmConfig(BLOCK_TIME_SHORT, 500, g_AllowSingleFingerMove);
             SaveBlockTime(BLOCK_TIME_SHORT);
             break;
         case ID_BLOCKTIME_NORMAL:
             g_CurrentBlockTime = BLOCK_TIME_NORMAL;
             TFHookSetBlockTime(BLOCK_TIME_NORMAL);
+            TouchGesture_SetPalmConfig(BLOCK_TIME_NORMAL, 500, g_AllowSingleFingerMove);
             SaveBlockTime(BLOCK_TIME_NORMAL);
             break;
         case ID_BLOCKTIME_LONG:
             g_CurrentBlockTime = BLOCK_TIME_LONG;
             TFHookSetBlockTime(BLOCK_TIME_LONG);
+            TouchGesture_SetPalmConfig(BLOCK_TIME_LONG, 500, g_AllowSingleFingerMove);
             SaveBlockTime(BLOCK_TIME_LONG);
+            break;
+        case ID_ZONE_DISABLED:
+        case ID_ZONE_ANYWHERE:
+        case ID_ZONE_RIGHT_THIRD:
+        case ID_ZONE_RIGHT_HALF:
+        case ID_ZONE_TOP_RIGHT:
+        case ID_ZONE_BOTTOM_RIGHT:
+            {
+                int mode = PAD_ZONE_DISABLED;
+                switch (LOWORD(wParam))
+                {
+                case ID_ZONE_ANYWHERE:     mode = PAD_ZONE_ANYWHERE; break;
+                case ID_ZONE_RIGHT_THIRD:  mode = PAD_ZONE_RIGHT_THIRD; break;
+                case ID_ZONE_RIGHT_HALF:   mode = PAD_ZONE_RIGHT_HALF; break;
+                case ID_ZONE_TOP_RIGHT:    mode = PAD_ZONE_TOP_RIGHT; break;
+                case ID_ZONE_BOTTOM_RIGHT: mode = PAD_ZONE_BOTTOM_RIGHT; break;
+                }
+                g_CurrentRightDragZone = mode;
+                TouchGesture_SetZoneMode(mode);
+                SaveRightDragZone(mode);
+            }
+            break;
+        case ID_ALLOW_SINGLE_FINGER:
+            g_AllowSingleFingerMove = !g_AllowSingleFingerMove;
+            TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_AllowSingleFingerMove);
+            SaveAllowSingleFinger(g_AllowSingleFingerMove);
             break;
         case ID_DONATE:
             ContactOrDonate(hWnd, 1);
@@ -331,6 +448,12 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR lpCmdLine, int
     // Load block time and set
     g_CurrentBlockTime = LoadBlockTime();
     TFHookSetBlockTime(g_CurrentBlockTime);
+
+    g_CurrentRightDragZone = LoadRightDragZone();
+    TouchGesture_SetZoneMode(g_CurrentRightDragZone);
+
+    g_AllowSingleFingerMove = LoadAllowSingleFinger();
+    TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_AllowSingleFingerMove);
 
     TFHookInstall(hwnd);
 
