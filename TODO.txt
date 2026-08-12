@@ -1,14 +1,10 @@
 === Completed Tasks (v1.2.0) ===
-[x] Windows Precision Touchpad (PTP) & Raw Input API (WM_INPUT) support
-[x] Independent Palm Rejection State Machine (Idle / Typing / TouchDetected / Blocked / Released / Cooldown)
-[x] Single-finger small motion override option during typing
-[x] Real-time Input & Touchpad Diagnostic Monitor GUI (Input Monitor...)
-[x] Physical touchpad right-drag zone conversion with LLMHF_INJECTED loop prevention
-[x] Auto-start and block duration configuration with Windows Registry persistence
-[x] Automated GitHub Actions Build and Release Workflow (.github/workflows/build.yml)
+[x] Windows Precision Touchpad (PTP) & Raw Input support
+[x] Smart Palm Rejection (Single-finger motion override during typing)
+[x] Real-time Diagnostic Monitor window
+[x] Physical touchpad right-drag zone support
+[x] System tray menu & Registry auto-save
+[x] GitHub Actions automated build & release workflow
 
-=== Future Improvements / Roadmap ===
-[ ] Modern Settings Dialog (JSON config export/import)
-[ ] Customizable Sensitivity & Delta Threshold sliders in GUI
-[ ] Multi-language UI localization (Japanese & English)
-[ ] KMDF Kernel-mode Filter Driver option (for driver-level HID suppression)
+=== Future Enhancements ===
+[ ] Automatic OS Language Localization (Japanese / English, auto-detect without UI toggle)
