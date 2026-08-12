@@ -1,3 +1,14 @@
-+ setup
-- Donate paypal
-- Aboutbox at first run
+=== Completed Tasks (v1.2.0) ===
+[x] Windows Precision Touchpad (PTP) & Raw Input API (WM_INPUT) support
+[x] Independent Palm Rejection State Machine (Idle / Typing / TouchDetected / Blocked / Released / Cooldown)
+[x] Single-finger small motion override option during typing
+[x] Real-time Input & Touchpad Diagnostic Monitor GUI (Input Monitor...)
+[x] Physical touchpad right-drag zone conversion with LLMHF_INJECTED loop prevention
+[x] Auto-start and block duration configuration with Windows Registry persistence
+[x] Automated GitHub Actions Build and Release Workflow (.github/workflows/build.yml)
+
+=== Future Improvements / Roadmap ===
+[ ] Modern Settings Dialog (JSON config export/import)
+[ ] Customizable Sensitivity & Delta Threshold sliders in GUI
+[ ] Multi-language UI localization (Japanese & English)
+[ ] KMDF Kernel-mode Filter Driver option (for driver-level HID suppression)
