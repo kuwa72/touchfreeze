@@ -78,7 +78,7 @@ CAPTION "About TouchFreeze & Touchpad Test"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,188,7,50,14
-    LTEXT           "TouchFreeze 1.2.0\nCopyright (C) 2005-2026 Ivan Zhakov & Contributors",IDC_STATIC,34,7,144,24
+    LTEXT           "TouchFreeze 1.2.1\nCopyright (C) 2005-2026 Ivan Zhakov & Contributors",IDC_STATIC,34,7,144,24
     ICON            IDR_MAINFRAME,IDC_STATIC,7,7,20,20
     LTEXT           "Touchpad Right Drag Test & Indicator:",IDC_STATIC,7,35,231,10
     CONTROL         "",IDC_TOUCHPAD_PREVIEW,"Static",SS_NOTIFY | SS_SUNKEN,7,48,231,100
@@ -108,8 +108,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,2,0,0
- PRODUCTVERSION 1,2,0,0
+ FILEVERSION 1,2,1,0
+ PRODUCTVERSION 1,2,1,0
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -125,12 +125,12 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "FileDescription", "TouchFreeze Application"
-            VALUE "FileVersion", "1.2.0.0"
+            VALUE "FileVersion", "1.2.1.0"
             VALUE "InternalName", "TouchFreeze"
             VALUE "LegalCopyright", "Copyright (C) 2005 Ivan Zhakov"
             VALUE "OriginalFilename", "TouchFreeze.exe"
             VALUE "ProductName", "TouchFreeze"
-            VALUE "ProductVersion", "1.2.0.0"
+            VALUE "ProductVersion", "1.2.1.0"
         END
     END
     BLOCK "VarFileInfo"
