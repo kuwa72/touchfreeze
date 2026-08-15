@@ -18,6 +18,7 @@
 #define IDC_LOG_LIST                    1011
 #define IDC_TXT_DIAG_INFO               1012
 #define IDC_BTN_CLEAR_LOG               1013
+#define IDC_BTN_DISABLE_ZONE            1014
 #define ID_ABOUT                        32774
 #define ID_EXIT                         32776
 #define ID_AUTOSTART_OFF                32778
@@ -33,15 +34,19 @@
 #define ID_ZONE_RIGHT_HALF             32793
 #define ID_ZONE_TOP_RIGHT              32794
 #define ID_ZONE_BOTTOM_RIGHT           32795
-#define ID_MONITOR                     32796
-#define ID_ALLOW_SINGLE_FINGER         32797
+#define ID_ZONE_RIGHT_QUARTER          32796
+#define ID_ZONE_RIGHT_FIFTH            32797
+#define ID_ZONE_BOTTOM_RIGHT_CORNER    32798
+#define ID_ZONE_CUSTOM                 32799
+#define ID_MONITOR                     32800
+#define ID_ALLOW_SINGLE_FINGER         32801
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        133
-#define _APS_NEXT_COMMAND_VALUE         32798
+#define _APS_NEXT_COMMAND_VALUE         32802
 #define _APS_NEXT_CONTROL_VALUE         1014
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

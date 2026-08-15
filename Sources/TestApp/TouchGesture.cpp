@@ -14,6 +14,10 @@
 
 static BOOL                 g_bEnabled = TRUE;
 static TouchpadZoneMode     g_ZoneMode = PAD_ZONE_RIGHT_THIRD;
+static double               g_CustomMinX = 0.80;
+static double               g_CustomMaxX = 1.00;
+static double               g_CustomMinY = 0.65;
+static double               g_CustomMaxY = 1.00;
 static TouchGestureState    g_GestureState = GESTURE_STATE_IDLE;
 static HWND                 g_hWndTarget = NULL;
 
@@ -124,6 +128,24 @@ int TouchGesture_GetZoneMode()
     return (int)g_ZoneMode;
 }
 
+void TouchGesture_SetCustomZone(double minX, double maxX, double minY, double maxY)
+{
+    g_CustomMinX = (minX < 0.0) ? 0.0 : ((minX > 1.0) ? 1.0 : minX);
+    g_CustomMaxX = (maxX < 0.0) ? 0.0 : ((maxX > 1.0) ? 1.0 : maxX);
+    g_CustomMinY = (minY < 0.0) ? 0.0 : ((minY > 1.0) ? 1.0 : minY);
+    g_CustomMaxY = (maxY < 0.0) ? 0.0 : ((maxY > 1.0) ? 1.0 : maxY);
+    if (g_CustomMinX > g_CustomMaxX) { double tmp = g_CustomMinX; g_CustomMinX = g_CustomMaxX; g_CustomMaxX = tmp; }
+    if (g_CustomMinY > g_CustomMaxY) { double tmp = g_CustomMinY; g_CustomMinY = g_CustomMaxY; g_CustomMaxY = tmp; }
+}
+
+void TouchGesture_GetCustomZone(double *pMinX, double *pMaxX, double *pMinY, double *pMaxY)
+{
+    if (pMinX) *pMinX = g_CustomMinX;
+    if (pMaxX) *pMaxX = g_CustomMaxX;
+    if (pMinY) *pMinY = g_CustomMinY;
+    if (pMaxY) *pMaxY = g_CustomMaxY;
+}
+
 BOOL TouchGesture_IsDragging()
 {
     return g_bRightDragLatched;
@@ -156,6 +178,19 @@ static bool IsInPhysicalZone(double ratioX, double ratioY)
 
     case PAD_ZONE_BOTTOM_RIGHT:
         return (ratioX >= 0.70) && (ratioY >= 0.50); // Bottom-Right quarter
+
+    case PAD_ZONE_RIGHT_QUARTER:
+        return (ratioX >= 0.75); // Right 25% area
+
+    case PAD_ZONE_RIGHT_FIFTH:
+        return (ratioX >= 0.80); // Right 20% area
+
+    case PAD_ZONE_BOTTOM_RIGHT_CORNER:
+        return (ratioX >= 0.80) && (ratioY >= 0.65); // Bottom-Right Corner (Right 20%, Bottom 35%)
+
+    case PAD_ZONE_CUSTOM:
+        return (ratioX >= g_CustomMinX && ratioX <= g_CustomMaxX &&
+                ratioY >= g_CustomMinY && ratioY <= g_CustomMaxY);
 
     default:
         break;

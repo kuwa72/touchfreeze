@@ -70,7 +70,11 @@ enum TouchpadZoneMode
     PAD_ZONE_RIGHT_THIRD,
     PAD_ZONE_RIGHT_HALF,
     PAD_ZONE_TOP_RIGHT,
-    PAD_ZONE_BOTTOM_RIGHT
+    PAD_ZONE_BOTTOM_RIGHT,
+    PAD_ZONE_RIGHT_QUARTER,
+    PAD_ZONE_RIGHT_FIFTH,
+    PAD_ZONE_BOTTOM_RIGHT_CORNER,
+    PAD_ZONE_CUSTOM
 };
 
 // Enable / Disable TouchGesture feature
@@ -79,6 +83,9 @@ BOOL TouchGesture_IsEnabled();
 
 void TouchGesture_SetZoneMode(int mode);
 int  TouchGesture_GetZoneMode();
+
+void TouchGesture_SetCustomZone(double minX, double maxX, double minY, double maxY);
+void TouchGesture_GetCustomZone(double *pMinX, double *pMaxX, double *pMinY, double *pMaxY);
 
 // Check if currently performing a right drag injected by TouchGesture
 BOOL TouchGesture_IsDragging();

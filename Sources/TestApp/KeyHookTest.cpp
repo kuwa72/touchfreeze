@@ -149,7 +149,7 @@ static DWORD LoadBlockTime()
     return time;
 }
 
-static void SaveRightDragZone(int mode)
+void SaveRightDragZone(int mode)
 {
     HKEY regKey;
     if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
@@ -175,6 +175,44 @@ static int LoadRightDragZone()
         RegCloseKey(regKey);
     }
     return (int)val;
+}
+
+void SaveCustomZoneParams(double minX, double maxX, double minY, double maxY)
+{
+    HKEY regKey;
+    if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
+    {
+        DWORD dwMinX = (DWORD)(minX * 1000.0);
+        DWORD dwMaxX = (DWORD)(maxX * 1000.0);
+        DWORD dwMinY = (DWORD)(minY * 1000.0);
+        DWORD dwMaxY = (DWORD)(maxY * 1000.0);
+        RegSetValueEx(regKey, _T("CustomZoneMinX"), 0, REG_DWORD, (LPBYTE)&dwMinX, sizeof(DWORD));
+        RegSetValueEx(regKey, _T("CustomZoneMaxX"), 0, REG_DWORD, (LPBYTE)&dwMaxX, sizeof(DWORD));
+        RegSetValueEx(regKey, _T("CustomZoneMinY"), 0, REG_DWORD, (LPBYTE)&dwMinY, sizeof(DWORD));
+        RegSetValueEx(regKey, _T("CustomZoneMaxY"), 0, REG_DWORD, (LPBYTE)&dwMaxY, sizeof(DWORD));
+        RegCloseKey(regKey);
+    }
+}
+
+void LoadCustomZoneParams(double *pMinX, double *pMaxX, double *pMinY, double *pMaxY)
+{
+    HKEY regKey;
+    DWORD dwMinX = 800, dwMaxX = 1000, dwMinY = 650, dwMaxY = 1000;
+    DWORD size = sizeof(DWORD);
+
+    if (RegOpenKeyEx(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, 0, KEY_READ, &regKey) == ERROR_SUCCESS)
+    {
+        RegQueryValueEx(regKey, _T("CustomZoneMinX"), NULL, NULL, (LPBYTE)&dwMinX, &size); size = sizeof(DWORD);
+        RegQueryValueEx(regKey, _T("CustomZoneMaxX"), NULL, NULL, (LPBYTE)&dwMaxX, &size); size = sizeof(DWORD);
+        RegQueryValueEx(regKey, _T("CustomZoneMinY"), NULL, NULL, (LPBYTE)&dwMinY, &size); size = sizeof(DWORD);
+        RegQueryValueEx(regKey, _T("CustomZoneMaxY"), NULL, NULL, (LPBYTE)&dwMaxY, &size);
+        RegCloseKey(regKey);
+    }
+
+    if (pMinX) *pMinX = (double)dwMinX / 1000.0;
+    if (pMaxX) *pMaxX = (double)dwMaxX / 1000.0;
+    if (pMinY) *pMinY = (double)dwMinY / 1000.0;
+    if (pMaxY) *pMaxY = (double)dwMaxY / 1000.0;
 }
 
 static void SaveAllowSingleFinger(BOOL bAllow)
@@ -228,22 +266,6 @@ static void ShowContextMenu(HWND hwnd)
     }
     CheckMenuRadioItem(hMenuPopup, ID_BLOCKTIME_SHORT, ID_BLOCKTIME_LONG,
                       checkItem, MF_BYCOMMAND);
-
-    // Set right drag zone check
-    UINT zoneItem = ID_ZONE_RIGHT_THIRD;
-    switch (g_CurrentRightDragZone)
-    {
-    case PAD_ZONE_DISABLED:     zoneItem = ID_ZONE_DISABLED; break;
-    case PAD_ZONE_ANYWHERE:     zoneItem = ID_ZONE_ANYWHERE; break;
-    case PAD_ZONE_RIGHT_THIRD:  zoneItem = ID_ZONE_RIGHT_THIRD; break;
-    case PAD_ZONE_RIGHT_HALF:   zoneItem = ID_ZONE_RIGHT_HALF; break;
-    case PAD_ZONE_TOP_RIGHT:    zoneItem = ID_ZONE_TOP_RIGHT; break;
-    case PAD_ZONE_BOTTOM_RIGHT: zoneItem = ID_ZONE_BOTTOM_RIGHT; break;
-    }
-    
-    // CheckMenuRadioItem works recursively across submenus when given correct min/max IDs
-    CheckMenuRadioItem(hMenuPopup, ID_ZONE_DISABLED, ID_ZONE_BOTTOM_RIGHT,
-                      zoneItem, MF_BYCOMMAND);
 
     CheckMenuItem(hMenuPopup, ID_ALLOW_SINGLE_FINGER,
                   g_AllowSingleFingerMove ? MF_CHECKED : MF_UNCHECKED);
@@ -359,27 +381,6 @@ LRESULT CALLBACK MainWindowProc(
             TouchGesture_SetPalmConfig(BLOCK_TIME_LONG, 500, g_AllowSingleFingerMove);
             SaveBlockTime(BLOCK_TIME_LONG);
             break;
-        case ID_ZONE_DISABLED:
-        case ID_ZONE_ANYWHERE:
-        case ID_ZONE_RIGHT_THIRD:
-        case ID_ZONE_RIGHT_HALF:
-        case ID_ZONE_TOP_RIGHT:
-        case ID_ZONE_BOTTOM_RIGHT:
-            {
-                int mode = PAD_ZONE_DISABLED;
-                switch (LOWORD(wParam))
-                {
-                case ID_ZONE_ANYWHERE:     mode = PAD_ZONE_ANYWHERE; break;
-                case ID_ZONE_RIGHT_THIRD:  mode = PAD_ZONE_RIGHT_THIRD; break;
-                case ID_ZONE_RIGHT_HALF:   mode = PAD_ZONE_RIGHT_HALF; break;
-                case ID_ZONE_TOP_RIGHT:    mode = PAD_ZONE_TOP_RIGHT; break;
-                case ID_ZONE_BOTTOM_RIGHT: mode = PAD_ZONE_BOTTOM_RIGHT; break;
-                }
-                g_CurrentRightDragZone = mode;
-                TouchGesture_SetZoneMode(mode);
-                SaveRightDragZone(mode);
-            }
-            break;
         case ID_ALLOW_SINGLE_FINGER:
             g_AllowSingleFingerMove = !g_AllowSingleFingerMove;
             TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_AllowSingleFingerMove);
@@ -459,6 +460,10 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR lpCmdLine, int
     // Load block time and set
     g_CurrentBlockTime = LoadBlockTime();
     TFHookSetBlockTime(g_CurrentBlockTime);
+
+    double customMinX, customMaxX, customMinY, customMaxY;
+    LoadCustomZoneParams(&customMinX, &customMaxX, &customMinY, &customMaxY);
+    TouchGesture_SetCustomZone(customMinX, customMaxX, customMinY, customMaxY);
 
     g_CurrentRightDragZone = LoadRightDragZone();
     TouchGesture_SetZoneMode(g_CurrentRightDragZone);

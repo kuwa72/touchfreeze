@@ -7,128 +7,245 @@
 #include <stdio.h>
 #include <tchar.h>
 
+#include "KeyHookTest.h"
+#include <windowsx.h>
+
 static WNDPROC g_pOldMonitorPreviewProc = NULL;
 static int     g_LastSyncedLogCount = -1;
+static BOOL    g_bMonitorDraggingArea = FALSE;
+static POINT   g_ptMonitorDragStart = { 0, 0 };
+static POINT   g_ptMonitorDragCurrent = { 0, 0 };
 
 static LRESULT CALLBACK MonitorPreviewProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    if (uMsg == WM_PAINT)
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    int padLeft   = rc.left + 6;
+    int padTop    = rc.top + 6;
+    int padWidth  = (rc.right - 4) - padLeft;
+    int padHeight = (rc.bottom - 4) - padTop;
+
+    switch (uMsg)
     {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hwnd, &ps);
-
-        RECT rc;
-        GetClientRect(hwnd, &rc);
-
-        // Fill background
-        HBRUSH hbgBrush = CreateSolidBrush(RGB(235, 238, 245));
-        FillRect(hdc, &rc, hbgBrush);
-        DeleteObject(hbgBrush);
-
-        // Draw touchpad outer frame
-        HPEN hFramePen = CreatePen(PS_SOLID, 2, RGB(160, 160, 180));
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hFramePen);
-        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-
-        RoundRect(hdc, rc.left + 4, rc.top + 4, rc.right - 4, rc.bottom - 4, 10, 10);
-
-        int padLeft   = rc.left + 6;
-        int padTop    = rc.top + 6;
-        int padWidth  = (rc.right - 4) - padLeft;
-        int padHeight = (rc.bottom - 4) - padTop;
-
-        int zoneMode = TouchGesture_GetZoneMode();
-        RECT rcZone = { 0 };
-        BOOL hasZone = TRUE;
-
-        switch (zoneMode)
+    case WM_LBUTTONDOWN:
         {
-        case PAD_ZONE_RIGHT_THIRD:
-            rcZone.left   = padLeft + (int)(padWidth * 0.70);
-            rcZone.top    = padTop;
-            rcZone.right  = padLeft + padWidth;
-            rcZone.bottom = padTop + padHeight;
-            break;
-        case PAD_ZONE_RIGHT_HALF:
-            rcZone.left   = padLeft + (int)(padWidth * 0.50);
-            rcZone.top    = padTop;
-            rcZone.right  = padLeft + padWidth;
-            rcZone.bottom = padTop + padHeight;
-            break;
-        case PAD_ZONE_TOP_RIGHT:
-            rcZone.left   = padLeft + (int)(padWidth * 0.70);
-            rcZone.top    = padTop;
-            rcZone.right  = padLeft + padWidth;
-            rcZone.bottom = padTop + (int)(padHeight * 0.50);
-            break;
-        case PAD_ZONE_BOTTOM_RIGHT:
-            rcZone.left   = padLeft + (int)(padWidth * 0.70);
-            rcZone.top    = padTop + (int)(padHeight * 0.50);
-            rcZone.right  = padLeft + padWidth;
-            rcZone.bottom = padTop + padHeight;
-            break;
-        case PAD_ZONE_ANYWHERE:
-            rcZone.left   = padLeft;
-            rcZone.top    = padTop;
-            rcZone.right  = padLeft + padWidth;
-            rcZone.bottom = padTop + padHeight;
-            break;
-        default:
-            hasZone = FALSE;
-            break;
+            g_bMonitorDraggingArea = TRUE;
+            g_ptMonitorDragStart.x = GET_X_LPARAM(lParam);
+            g_ptMonitorDragStart.y = GET_Y_LPARAM(lParam);
+            g_ptMonitorDragCurrent = g_ptMonitorDragStart;
+            SetCapture(hwnd);
+            InvalidateRect(hwnd, NULL, FALSE);
         }
-
-        if (hasZone)
-        {
-            HBRUSH hZoneBrush = CreateSolidBrush(RGB(200, 225, 255));
-            FillRect(hdc, &rcZone, hZoneBrush);
-            DeleteObject(hZoneBrush);
-
-            HPEN hZoneBorder = CreatePen(PS_DOT, 1, RGB(90, 140, 220));
-            SelectObject(hdc, hZoneBorder);
-            Rectangle(hdc, rcZone.left, rcZone.top, rcZone.right, rcZone.bottom);
-            DeleteObject(hZoneBorder);
-        }
-
-        // Draw active touch coordinates
-        TouchDiagInfo diag;
-        TouchGesture_GetDiagInfo(&diag);
-
-        if (diag.bTouchActive && diag.fRatioX >= 0.0 && diag.fRatioY >= 0.0)
-        {
-            int cx = padLeft + (int)(padWidth * diag.fRatioX);
-            int cy = padTop  + (int)(padHeight * diag.fRatioY);
-
-            COLORREF touchColor = diag.bDragging ? RGB(220, 30, 30) : RGB(40, 160, 40);
-            HBRUSH hTouchBrush = CreateSolidBrush(touchColor);
-            HPEN hTouchPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
-
-            SelectObject(hdc, hTouchBrush);
-            SelectObject(hdc, hTouchPen);
-            Ellipse(hdc, cx - 7, cy - 7, cx + 7, cy + 7);
-
-            DeleteObject(hTouchBrush);
-            DeleteObject(hTouchPen);
-        }
-
-        SetBkMode(hdc, TRANSPARENT);
-        if (diag.bBlocked)
-        {
-            SetTextColor(hdc, RGB(220, 80, 0));
-            TextOut(hdc, padLeft + 6, padTop + 6, _T("[BLOCKED]"), 9);
-        }
-        else if (diag.bDragging)
-        {
-            SetTextColor(hdc, RGB(200, 0, 0));
-            TextOut(hdc, padLeft + 6, padTop + 6, _T("[RIGHT DRAGGING]"), 16);
-        }
-
-        SelectObject(hdc, hOldPen);
-        SelectObject(hdc, hOldBrush);
-        DeleteObject(hFramePen);
-
-        EndPaint(hwnd, &ps);
         return 0;
+
+    case WM_MOUSEMOVE:
+        if (g_bMonitorDraggingArea)
+        {
+            g_ptMonitorDragCurrent.x = GET_X_LPARAM(lParam);
+            g_ptMonitorDragCurrent.y = GET_Y_LPARAM(lParam);
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+
+    case WM_LBUTTONUP:
+        if (g_bMonitorDraggingArea)
+        {
+            g_bMonitorDraggingArea = FALSE;
+            ReleaseCapture();
+
+            g_ptMonitorDragCurrent.x = GET_X_LPARAM(lParam);
+            g_ptMonitorDragCurrent.y = GET_Y_LPARAM(lParam);
+
+            int x1 = min(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
+            int x2 = max(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
+            int y1 = min(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+            int y2 = max(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+
+            if ((x2 - x1) >= 8 && (y2 - y1) >= 8 && padWidth > 0 && padHeight > 0)
+            {
+                double minX = (double)(x1 - padLeft) / (double)padWidth;
+                double maxX = (double)(x2 - padLeft) / (double)padWidth;
+                double minY = (double)(y1 - padTop) / (double)padHeight;
+                double maxY = (double)(y2 - padTop) / (double)padHeight;
+
+                TouchGesture_SetCustomZone(minX, maxX, minY, maxY);
+                TouchGesture_SetZoneMode(PAD_ZONE_CUSTOM);
+                g_CurrentRightDragZone = PAD_ZONE_CUSTOM;
+                SaveCustomZoneParams(minX, maxX, minY, maxY);
+                SaveRightDragZone(PAD_ZONE_CUSTOM);
+            }
+            InvalidateRect(hwnd, NULL, FALSE);
+        }
+        return 0;
+
+    case WM_RBUTTONUP:
+        TouchGesture_SetZoneMode(PAD_ZONE_DISABLED);
+        g_CurrentRightDragZone = PAD_ZONE_DISABLED;
+        SaveRightDragZone(PAD_ZONE_DISABLED);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return 0;
+
+    case WM_PAINT:
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+
+            // Fill background
+            HBRUSH hbgBrush = CreateSolidBrush(RGB(235, 238, 245));
+            FillRect(hdc, &rc, hbgBrush);
+            DeleteObject(hbgBrush);
+
+            // Draw touchpad outer frame
+            HPEN hFramePen = CreatePen(PS_SOLID, 2, RGB(160, 160, 180));
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hFramePen);
+            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+            RoundRect(hdc, rc.left + 4, rc.top + 4, rc.right - 4, rc.bottom - 4, 10, 10);
+
+            int zoneMode = TouchGesture_GetZoneMode();
+            RECT rcZone = { 0 };
+            BOOL hasZone = TRUE;
+
+            switch (zoneMode)
+            {
+            case PAD_ZONE_RIGHT_THIRD:
+                rcZone.left   = padLeft + (int)(padWidth * 0.70);
+                rcZone.top    = padTop;
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            case PAD_ZONE_RIGHT_HALF:
+                rcZone.left   = padLeft + (int)(padWidth * 0.50);
+                rcZone.top    = padTop;
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            case PAD_ZONE_TOP_RIGHT:
+                rcZone.left   = padLeft + (int)(padWidth * 0.70);
+                rcZone.top    = padTop;
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + (int)(padHeight * 0.50);
+                break;
+            case PAD_ZONE_BOTTOM_RIGHT:
+                rcZone.left   = padLeft + (int)(padWidth * 0.70);
+                rcZone.top    = padTop + (int)(padHeight * 0.50);
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            case PAD_ZONE_RIGHT_QUARTER:
+                rcZone.left   = padLeft + (int)(padWidth * 0.75);
+                rcZone.top    = padTop;
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            case PAD_ZONE_RIGHT_FIFTH:
+                rcZone.left   = padLeft + (int)(padWidth * 0.80);
+                rcZone.top    = padTop;
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            case PAD_ZONE_BOTTOM_RIGHT_CORNER:
+                rcZone.left   = padLeft + (int)(padWidth * 0.80);
+                rcZone.top    = padTop + (int)(padHeight * 0.65);
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            case PAD_ZONE_CUSTOM:
+                {
+                    double minX, maxX, minY, maxY;
+                    TouchGesture_GetCustomZone(&minX, &maxX, &minY, &maxY);
+                    rcZone.left   = padLeft + (int)(padWidth * minX);
+                    rcZone.top    = padTop  + (int)(padHeight * minY);
+                    rcZone.right  = padLeft + (int)(padWidth * maxX);
+                    rcZone.bottom = padTop  + (int)(padHeight * maxY);
+                }
+                break;
+            case PAD_ZONE_ANYWHERE:
+                rcZone.left   = padLeft;
+                rcZone.top    = padTop;
+                rcZone.right  = padLeft + padWidth;
+                rcZone.bottom = padTop + padHeight;
+                break;
+            default:
+                hasZone = FALSE;
+                break;
+            }
+
+            if (hasZone && !g_bMonitorDraggingArea)
+            {
+                HBRUSH hZoneBrush = CreateSolidBrush(RGB(200, 225, 255));
+                FillRect(hdc, &rcZone, hZoneBrush);
+                DeleteObject(hZoneBrush);
+
+                HPEN hZoneBorder = CreatePen(PS_DOT, 1, RGB(90, 140, 220));
+                SelectObject(hdc, hZoneBorder);
+                Rectangle(hdc, rcZone.left, rcZone.top, rcZone.right, rcZone.bottom);
+                DeleteObject(hZoneBorder);
+            }
+
+            if (g_bMonitorDraggingArea)
+            {
+                RECT rcDrag;
+                rcDrag.left   = min(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
+                rcDrag.right  = max(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
+                rcDrag.top    = min(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+                rcDrag.bottom = max(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+
+                HBRUSH hDragBrush = CreateSolidBrush(RGB(180, 240, 200));
+                FillRect(hdc, &rcDrag, hDragBrush);
+                DeleteObject(hDragBrush);
+
+                HPEN hDragPen = CreatePen(PS_SOLID, 2, RGB(40, 180, 80));
+                SelectObject(hdc, hDragPen);
+                Rectangle(hdc, rcDrag.left, rcDrag.top, rcDrag.right, rcDrag.bottom);
+                DeleteObject(hDragPen);
+            }
+
+            // Draw active touch coordinates
+            TouchDiagInfo diag;
+            TouchGesture_GetDiagInfo(&diag);
+
+            if (diag.bTouchActive && diag.fRatioX >= 0.0 && diag.fRatioY >= 0.0)
+            {
+                int cx = padLeft + (int)(padWidth * diag.fRatioX);
+                int cy = padTop  + (int)(padHeight * diag.fRatioY);
+
+                COLORREF touchColor = diag.bDragging ? RGB(220, 30, 30) : RGB(40, 160, 40);
+                HBRUSH hTouchBrush = CreateSolidBrush(touchColor);
+                HPEN hTouchPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+
+                SelectObject(hdc, hTouchBrush);
+                SelectObject(hdc, hTouchPen);
+                Ellipse(hdc, cx - 7, cy - 7, cx + 7, cy + 7);
+
+                DeleteObject(hTouchBrush);
+                DeleteObject(hTouchPen);
+            }
+
+            SetBkMode(hdc, TRANSPARENT);
+            if (diag.bBlocked)
+            {
+                SetTextColor(hdc, RGB(220, 80, 0));
+                TextOut(hdc, padLeft + 6, padTop + 6, _T("[BLOCKED]"), 9);
+            }
+            else if (diag.bDragging)
+            {
+                SetTextColor(hdc, RGB(200, 0, 0));
+                TextOut(hdc, padLeft + 6, padTop + 6, _T("[RIGHT DRAGGING]"), 16);
+            }
+            else
+            {
+                SetTextColor(hdc, RGB(80, 120, 160));
+                TextOut(hdc, padLeft + 6, padTop + 6, _T("Drag mouse here to set Custom Area"), 34);
+            }
+
+            SelectObject(hdc, hOldPen);
+            SelectObject(hdc, hOldBrush);
+            DeleteObject(hFramePen);
+
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
     }
 
     return CallWindowProc(g_pOldMonitorPreviewProc, hwnd, uMsg, wParam, lParam);
@@ -237,6 +354,12 @@ static INT_PTR CALLBACK MonitorDlgProc(
         case IDC_BTN_CLEAR_LOG:
             TouchGesture_ClearLog();
             g_LastSyncedLogCount = -1;
+            RefreshMonitorUI(hWnd);
+            break;
+        case IDC_BTN_DISABLE_ZONE:
+            TouchGesture_SetZoneMode(PAD_ZONE_DISABLED);
+            g_CurrentRightDragZone = PAD_ZONE_DISABLED;
+            SaveRightDragZone(PAD_ZONE_DISABLED);
             RefreshMonitorUI(hWnd);
             break;
         case IDOK:
