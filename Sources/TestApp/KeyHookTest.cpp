@@ -179,13 +179,18 @@ static int LoadRightDragZone()
 
 void SaveCustomZoneParams(double minX, double maxX, double minY, double maxY)
 {
+    minX = max(0.0, min(1.0, minX));
+    maxX = max(0.0, min(1.0, maxX));
+    minY = max(0.0, min(1.0, minY));
+    maxY = max(0.0, min(1.0, maxY));
+
     HKEY regKey;
     if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
     {
-        DWORD dwMinX = (DWORD)(minX * 1000.0);
-        DWORD dwMaxX = (DWORD)(maxX * 1000.0);
-        DWORD dwMinY = (DWORD)(minY * 1000.0);
-        DWORD dwMaxY = (DWORD)(maxY * 1000.0);
+        DWORD dwMinX = (DWORD)(minX * 1000.0 + 0.5);
+        DWORD dwMaxX = (DWORD)(maxX * 1000.0 + 0.5);
+        DWORD dwMinY = (DWORD)(minY * 1000.0 + 0.5);
+        DWORD dwMaxY = (DWORD)(maxY * 1000.0 + 0.5);
         RegSetValueEx(regKey, _T("CustomZoneMinX"), 0, REG_DWORD, (LPBYTE)&dwMinX, sizeof(DWORD));
         RegSetValueEx(regKey, _T("CustomZoneMaxX"), 0, REG_DWORD, (LPBYTE)&dwMaxX, sizeof(DWORD));
         RegSetValueEx(regKey, _T("CustomZoneMinY"), 0, REG_DWORD, (LPBYTE)&dwMinY, sizeof(DWORD));
@@ -208,6 +213,11 @@ void LoadCustomZoneParams(double *pMinX, double *pMaxX, double *pMinY, double *p
         RegQueryValueEx(regKey, _T("CustomZoneMaxY"), NULL, NULL, (LPBYTE)&dwMaxY, &size);
         RegCloseKey(regKey);
     }
+
+    if (dwMinX > 1000) dwMinX = (dwMinX >= 0x80000000) ? 0 : 1000;
+    if (dwMaxX > 1000) dwMaxX = (dwMaxX >= 0x80000000) ? 0 : 1000;
+    if (dwMinY > 1000) dwMinY = (dwMinY >= 0x80000000) ? 0 : 1000;
+    if (dwMaxY > 1000) dwMaxY = (dwMaxY >= 0x80000000) ? 0 : 1000;
 
     if (pMinX) *pMinX = (double)dwMinX / 1000.0;
     if (pMaxX) *pMaxX = (double)dwMaxX / 1000.0;

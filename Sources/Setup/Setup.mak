@@ -25,7 +25,7 @@ makedirs:
     @if not exist $(OutDir) mkdir $(OutDir)
 
 .wxs{$(IntDir)\}.wixobj: 
-    $(CANDLE) -nologo -out $(IntDir)\ %s -dExecDir=$(OutDir) -dVERSION=1.2.2
+    $(CANDLE) -nologo -out $(IntDir)\ %s -dExecDir=$(OutDir) -dVERSION=1.2.3
 
 
 

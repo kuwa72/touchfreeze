@@ -22,16 +22,22 @@ static LRESULT CALLBACK MonitorPreviewProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     GetClientRect(hwnd, &rc);
     int padLeft   = rc.left + 6;
     int padTop    = rc.top + 6;
-    int padWidth  = (rc.right - 4) - padLeft;
-    int padHeight = (rc.bottom - 4) - padTop;
+    int padRight  = rc.right - 6;
+    int padBottom = rc.bottom - 6;
+    int padWidth  = padRight - padLeft;
+    int padHeight = padBottom - padTop;
 
     switch (uMsg)
     {
     case WM_LBUTTONDOWN:
         {
             g_bMonitorDraggingArea = TRUE;
-            g_ptMonitorDragStart.x = GET_X_LPARAM(lParam);
-            g_ptMonitorDragStart.y = GET_Y_LPARAM(lParam);
+            int x = GET_X_LPARAM(lParam);
+            int y = GET_Y_LPARAM(lParam);
+            x = max(padLeft, min(padRight, x));
+            y = max(padTop, min(padBottom, y));
+            g_ptMonitorDragStart.x = x;
+            g_ptMonitorDragStart.y = y;
             g_ptMonitorDragCurrent = g_ptMonitorDragStart;
             SetCapture(hwnd);
             InvalidateRect(hwnd, NULL, FALSE);
@@ -41,8 +47,12 @@ static LRESULT CALLBACK MonitorPreviewProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
     case WM_MOUSEMOVE:
         if (g_bMonitorDraggingArea)
         {
-            g_ptMonitorDragCurrent.x = GET_X_LPARAM(lParam);
-            g_ptMonitorDragCurrent.y = GET_Y_LPARAM(lParam);
+            int x = GET_X_LPARAM(lParam);
+            int y = GET_Y_LPARAM(lParam);
+            x = max(padLeft, min(padRight, x));
+            y = max(padTop, min(padBottom, y));
+            g_ptMonitorDragCurrent.x = x;
+            g_ptMonitorDragCurrent.y = y;
             InvalidateRect(hwnd, NULL, FALSE);
         }
         return 0;
@@ -53,8 +63,12 @@ static LRESULT CALLBACK MonitorPreviewProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
             g_bMonitorDraggingArea = FALSE;
             ReleaseCapture();
 
-            g_ptMonitorDragCurrent.x = GET_X_LPARAM(lParam);
-            g_ptMonitorDragCurrent.y = GET_Y_LPARAM(lParam);
+            int x = GET_X_LPARAM(lParam);
+            int y = GET_Y_LPARAM(lParam);
+            x = max(padLeft, min(padRight, x));
+            y = max(padTop, min(padBottom, y));
+            g_ptMonitorDragCurrent.x = x;
+            g_ptMonitorDragCurrent.y = y;
 
             int x1 = min(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
             int x2 = max(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
@@ -67,6 +81,11 @@ static LRESULT CALLBACK MonitorPreviewProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
                 double maxX = (double)(x2 - padLeft) / (double)padWidth;
                 double minY = (double)(y1 - padTop) / (double)padHeight;
                 double maxY = (double)(y2 - padTop) / (double)padHeight;
+
+                minX = max(0.0, min(1.0, minX));
+                maxX = max(0.0, min(1.0, maxX));
+                minY = max(0.0, min(1.0, minY));
+                maxY = max(0.0, min(1.0, maxY));
 
                 TouchGesture_SetCustomZone(minX, maxX, minY, maxY);
                 TouchGesture_SetZoneMode(PAD_ZONE_CUSTOM);
@@ -185,11 +204,21 @@ static LRESULT CALLBACK MonitorPreviewProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 
             if (g_bMonitorDraggingArea)
             {
+                int x1 = min(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
+                int x2 = max(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
+                int y1 = min(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+                int y2 = max(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+
+                x1 = max(padLeft, min(padRight, x1));
+                x2 = max(padLeft, min(padRight, x2));
+                y1 = max(padTop, min(padBottom, y1));
+                y2 = max(padTop, min(padBottom, y2));
+
                 RECT rcDrag;
-                rcDrag.left   = min(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
-                rcDrag.right  = max(g_ptMonitorDragStart.x, g_ptMonitorDragCurrent.x);
-                rcDrag.top    = min(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
-                rcDrag.bottom = max(g_ptMonitorDragStart.y, g_ptMonitorDragCurrent.y);
+                rcDrag.left   = x1;
+                rcDrag.right  = x2;
+                rcDrag.top    = y1;
+                rcDrag.bottom = y2;
 
                 HBRUSH hDragBrush = CreateSolidBrush(RGB(180, 240, 200));
                 FillRect(hdc, &rcDrag, hDragBrush);
