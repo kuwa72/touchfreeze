@@ -10,6 +10,8 @@
          TFHookIsBlocked
          TFHookGetLastKeyTime
          TFHookGetLastVkCode
+         TFHookSetFreezeCursor
+         TFHookGetFreezeCursor
          TFHookSetOverrideBlocked
          TFHookGetOverrideBlocked
 

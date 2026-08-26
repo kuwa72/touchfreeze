@@ -38,7 +38,7 @@ const DWORD BLOCK_TIME_LONG = 700;   // 700ms - for careful typing
 DWORD g_CurrentBlockTime = BLOCK_TIME_NORMAL;
 
 int g_CurrentRightDragZone = ZONE_RIGHT_THIRD;
-BOOL g_AllowSingleFingerMove = TRUE;
+BOOL g_FreezeCursor = FALSE;
 
 static LONG RegSetStringValue(HKEY hKey, LPCTSTR valueName, LPCTSTR value)
 {
@@ -225,28 +225,28 @@ void LoadCustomZoneParams(double *pMinX, double *pMaxX, double *pMinY, double *p
     if (pMaxY) *pMaxY = (double)dwMaxY / 1000.0;
 }
 
-static void SaveAllowSingleFinger(BOOL bAllow)
+static void SaveFreezeCursor(BOOL bFreeze)
 {
     HKEY regKey;
     if (RegCreateKey(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, &regKey) == ERROR_SUCCESS)
     {
-        DWORD val = bAllow ? 1 : 0;
-        RegSetValueEx(regKey, _T("AllowSingleFingerMove"), 0, REG_DWORD, (LPBYTE)&val, sizeof(DWORD));
+        DWORD val = bFreeze ? 1 : 0;
+        RegSetValueEx(regKey, _T("FreezeCursor"), 0, REG_DWORD, (LPBYTE)&val, sizeof(DWORD));
         RegCloseKey(regKey);
     }
 }
 
-static BOOL LoadAllowSingleFinger()
+static BOOL LoadFreezeCursor()
 {
     HKEY regKey;
-    DWORD val = 1;
+    DWORD val = 0; // Default: FALSE (Allow cursor move by default, block clicks)
     DWORD size = sizeof(DWORD);
     
     if (RegOpenKeyEx(HKEY_CURRENT_USER, TOUCHFREEZE_KEY, 0, KEY_READ, &regKey) == ERROR_SUCCESS)
     {
-        if (RegQueryValueEx(regKey, _T("AllowSingleFingerMove"), NULL, NULL, (LPBYTE)&val, &size) != ERROR_SUCCESS)
+        if (RegQueryValueEx(regKey, _T("FreezeCursor"), NULL, NULL, (LPBYTE)&val, &size) != ERROR_SUCCESS)
         {
-            val = 1;
+            val = 0;
         }
         RegCloseKey(regKey);
     }
@@ -277,8 +277,8 @@ static void ShowContextMenu(HWND hwnd)
     CheckMenuRadioItem(hMenuPopup, ID_BLOCKTIME_SHORT, ID_BLOCKTIME_LONG,
                       checkItem, MF_BYCOMMAND);
 
-    CheckMenuItem(hMenuPopup, ID_ALLOW_SINGLE_FINGER,
-                  g_AllowSingleFingerMove ? MF_CHECKED : MF_UNCHECKED);
+    CheckMenuItem(hMenuPopup, ID_FREEZE_CURSOR,
+                  g_FreezeCursor ? MF_CHECKED : MF_UNCHECKED);
 
     POINT pt;
     GetCursorPos(&pt);
@@ -376,25 +376,26 @@ LRESULT CALLBACK MainWindowProc(
         case ID_BLOCKTIME_SHORT:
             g_CurrentBlockTime = BLOCK_TIME_SHORT;
             TFHookSetBlockTime(BLOCK_TIME_SHORT);
-            TouchGesture_SetPalmConfig(BLOCK_TIME_SHORT, 500, g_AllowSingleFingerMove);
+            TouchGesture_SetPalmConfig(BLOCK_TIME_SHORT, 500, g_FreezeCursor);
             SaveBlockTime(BLOCK_TIME_SHORT);
             break;
         case ID_BLOCKTIME_NORMAL:
             g_CurrentBlockTime = BLOCK_TIME_NORMAL;
             TFHookSetBlockTime(BLOCK_TIME_NORMAL);
-            TouchGesture_SetPalmConfig(BLOCK_TIME_NORMAL, 500, g_AllowSingleFingerMove);
+            TouchGesture_SetPalmConfig(BLOCK_TIME_NORMAL, 500, g_FreezeCursor);
             SaveBlockTime(BLOCK_TIME_NORMAL);
             break;
         case ID_BLOCKTIME_LONG:
             g_CurrentBlockTime = BLOCK_TIME_LONG;
             TFHookSetBlockTime(BLOCK_TIME_LONG);
-            TouchGesture_SetPalmConfig(BLOCK_TIME_LONG, 500, g_AllowSingleFingerMove);
+            TouchGesture_SetPalmConfig(BLOCK_TIME_LONG, 500, g_FreezeCursor);
             SaveBlockTime(BLOCK_TIME_LONG);
             break;
-        case ID_ALLOW_SINGLE_FINGER:
-            g_AllowSingleFingerMove = !g_AllowSingleFingerMove;
-            TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_AllowSingleFingerMove);
-            SaveAllowSingleFinger(g_AllowSingleFingerMove);
+        case ID_FREEZE_CURSOR:
+            g_FreezeCursor = !g_FreezeCursor;
+            TFHookSetFreezeCursor(g_FreezeCursor);
+            TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_FreezeCursor);
+            SaveFreezeCursor(g_FreezeCursor);
             break;
         case ID_DONATE:
             ContactOrDonate(hWnd, 1);
@@ -471,6 +472,9 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR lpCmdLine, int
     g_CurrentBlockTime = LoadBlockTime();
     TFHookSetBlockTime(g_CurrentBlockTime);
 
+    g_FreezeCursor = LoadFreezeCursor();
+    TFHookSetFreezeCursor(g_FreezeCursor);
+
     double customMinX, customMaxX, customMinY, customMaxY;
     LoadCustomZoneParams(&customMinX, &customMaxX, &customMinY, &customMaxY);
     TouchGesture_SetCustomZone(customMinX, customMaxX, customMinY, customMaxY);
@@ -478,8 +482,7 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE hPrevInst, LPTSTR lpCmdLine, int
     g_CurrentRightDragZone = LoadRightDragZone();
     TouchGesture_SetZoneMode(g_CurrentRightDragZone);
 
-    g_AllowSingleFingerMove = LoadAllowSingleFinger();
-    TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_AllowSingleFingerMove);
+    TouchGesture_SetPalmConfig(g_CurrentBlockTime, 500, g_FreezeCursor);
 
     TFHookInstall(hwnd);
 

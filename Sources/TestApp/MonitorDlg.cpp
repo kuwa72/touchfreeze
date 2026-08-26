@@ -295,7 +295,7 @@ static void RefreshMonitorUI(HWND hWnd)
         _T("State Machine: %s  |  Blocked: %s  |  Right Drag: %s\r\n")
         _T("Last Key: VK 0x%02X (%u), Key Elapsed: %lu ms (Timeout: %lu ms, Cooldown: %lu ms)\r\n")
         _T("Touch Pos Ratio: X=%.1f%%, Y=%.1f%% (Active: %s, Touch Elapsed: %lu ms)\r\n")
-        _T("Touch Feature: DeltaDist=%.3f, Contacts=%d, Confidence=%s, 1-Finger Allowed=%s\r\n")
+        _T("Touch Feature: DeltaDist=%.3f, Contacts=%d, Confidence=%s, Freeze Cursor=%s\r\n")
         _T("Raw Input: Raw X=%lu, Y=%lu (Min/Max X:[%lu..%lu], Y:[%lu..%lu]) | hDev: 0x%p"),
         szPtpStatus,
         TouchGesture_GetStateName(diag.state),
@@ -310,7 +310,7 @@ static void RefreshMonitorUI(HWND hWnd)
         diag.dwElapsedTouchMs < 999999 ? diag.dwElapsedTouchMs : 0,
         diag.fDeltaDist, diag.nContactCount,
         diag.bConfidence ? _T("TRUE") : _T("FALSE"),
-        diag.bAllowSingleFingerMove ? _T("YES") : _T("NO"),
+        diag.bFreezeCursor ? _T("YES") : _T("NO"),
         diag.rawX, diag.rawY, diag.minX, diag.maxX, diag.minY, diag.maxY,
         diag.hDevice);
 

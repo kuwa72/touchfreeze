@@ -48,7 +48,7 @@ struct TouchDiagInfo
     BOOL bDragging;
     int  nContactCount;
     BOOL bConfidence;
-    BOOL bAllowSingleFingerMove;
+    BOOL bFreezeCursor;
     DWORD dwTypingTimeoutMs;
     DWORD dwCooldownMs;
 };
@@ -94,7 +94,7 @@ BOOL TouchGesture_IsDragging();
 BOOL TouchGesture_GetLastRatio(double *pRatioX, double *pRatioY);
 
 // Palm Rejection Configuration & Evaluation
-void TouchGesture_SetPalmConfig(DWORD typingTimeoutMs, DWORD cooldownMs, BOOL bAllowSingleFingerMove);
+void TouchGesture_SetPalmConfig(DWORD typingTimeoutMs, DWORD cooldownMs, BOOL bFreezeCursor);
 BOOL TouchGesture_ShouldBlockMouse();
 
 // Diagnostic Information & Log Functions for Monitor GUI

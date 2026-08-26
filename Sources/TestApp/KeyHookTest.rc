@@ -175,10 +175,7 @@ BEGIN
             MENUITEM "Normal (500ms)",             ID_BLOCKTIME_NORMAL
             MENUITEM "Slow (700ms)",               ID_BLOCKTIME_LONG
         END
-        POPUP "&Palm Rejection"
-        BEGIN
-            MENUITEM "Allow &1-Finger Motion",     ID_ALLOW_SINGLE_FINGER
-        END
+        MENUITEM "Freeze &Cursor While Typing",    ID_FREEZE_CURSOR
         MENUITEM SEPARATOR
         MENUITEM "Touchpad &Settings / Monitor...", ID_MONITOR
         MENUITEM "&About TouchFreeze...",         ID_ABOUT

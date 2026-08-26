@@ -20,6 +20,7 @@ BOOL                g_bConvertedRightDrag = FALSE;
 DWORD               g_LastVkCode    = 0;
 BOOL                g_bRightDragActive  = FALSE;
 BOOL                g_bOverrideBlocked = FALSE;
+BOOL                g_bFreezeCursor     = FALSE;
 #pragma data_seg()
 
 HANDLE              g_hMutex = NULL;
@@ -119,6 +120,8 @@ static inline bool IsBlockMouseMessage(UINT msg)
     case WM_LBUTTONUP:   case WM_MBUTTONUP:   case WM_RBUTTONUP:
     case WM_LBUTTONDBLCLK: case WM_MBUTTONDBLCLK: case WM_RBUTTONDBLCLK:
         return true;
+    case WM_MOUSEMOVE:
+        return g_bFreezeCursor;
     default:
         return false;
     }
@@ -258,6 +261,16 @@ HOOKDLL_API DWORD TFHookGetLastKeyTime()
 HOOKDLL_API DWORD TFHookGetLastVkCode()
 {
     return g_LastVkCode;
+}
+
+HOOKDLL_API void TFHookSetFreezeCursor(BOOL bFreeze)
+{
+    g_bFreezeCursor = bFreeze;
+}
+
+HOOKDLL_API BOOL TFHookGetFreezeCursor()
+{
+    return g_bFreezeCursor;
 }
 
 HOOKDLL_API void TFHookSetOverrideBlocked(BOOL bBlocked)

@@ -45,7 +45,6 @@ static BOOL   g_bConfidence = TRUE;
 
 static DWORD  g_TypingTimeoutMs = 500;
 static DWORD  g_CooldownMs = 500;
-static BOOL   g_bAllowSingleFingerMove = TRUE;
 static double g_LastDeltaX = 0.0;
 static double g_LastDeltaY = 0.0;
 static double g_LastDeltaDist = 0.0;
@@ -560,11 +559,10 @@ static void UpdatePalmState()
 }
 
 
-void TouchGesture_SetPalmConfig(DWORD typingTimeoutMs, DWORD cooldownMs, BOOL bAllowSingleFingerMove)
+void TouchGesture_SetPalmConfig(DWORD typingTimeoutMs, DWORD cooldownMs, BOOL bFreezeCursor)
 {
     g_TypingTimeoutMs = typingTimeoutMs;
     g_CooldownMs = cooldownMs;
-    g_bAllowSingleFingerMove = bAllowSingleFingerMove;
 }
 
 BOOL TouchGesture_ShouldBlockMouse()
@@ -618,7 +616,7 @@ void TouchGesture_GetDiagInfo(TouchDiagInfo* pOut)
     pOut->bDragging = g_bRightDragLatched;
     pOut->nContactCount = g_ContactCount;
     pOut->bConfidence = g_bConfidence;
-    pOut->bAllowSingleFingerMove = g_bAllowSingleFingerMove;
+    pOut->bFreezeCursor = TFHookGetFreezeCursor();
     pOut->dwTypingTimeoutMs = g_TypingTimeoutMs;
     pOut->dwCooldownMs = g_CooldownMs;
 }

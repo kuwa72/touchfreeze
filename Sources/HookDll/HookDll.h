@@ -54,6 +54,9 @@ HOOKDLL_API BOOL TFHookIsBlocked();
 HOOKDLL_API DWORD TFHookGetLastKeyTime();
 HOOKDLL_API DWORD TFHookGetLastVkCode();
 
+HOOKDLL_API void TFHookSetFreezeCursor(BOOL bFreeze);
+HOOKDLL_API BOOL TFHookGetFreezeCursor();
+
 HOOKDLL_API void TFHookSetOverrideBlocked(BOOL bBlocked);
 HOOKDLL_API BOOL TFHookGetOverrideBlocked();
 

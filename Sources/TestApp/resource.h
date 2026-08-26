@@ -39,7 +39,7 @@
 #define ID_ZONE_BOTTOM_RIGHT_CORNER    32798
 #define ID_ZONE_CUSTOM                 32799
 #define ID_MONITOR                     32800
-#define ID_ALLOW_SINGLE_FINGER         32801
+#define ID_FREEZE_CURSOR               32801
 
 // Next default values for new objects
 // 
