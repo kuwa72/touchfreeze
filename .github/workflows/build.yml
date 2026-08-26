@@ -2,6 +2,9 @@ name: Build and Release
 
 on:
   push:
+    branches:
+      - master
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -25,6 +28,16 @@ jobs:
         echo Find msi file in powershell and output
         powershell -Command "Get-ChildItem -Path 'Executable\bin' -Filter '*.msi' -Name"
         echo done
+    
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: touchfreeze-bin
+        path: |
+          Executable/bin/TouchFreeze.exe
+          Executable/bin/TouchFreeze.dll
+          Executable/bin/TouchFreeze.msi
+        if-no-files-found: error
     
     - name: Create Release
       uses: softprops/action-gh-release@v2

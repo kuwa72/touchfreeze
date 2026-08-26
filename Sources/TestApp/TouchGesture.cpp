@@ -381,20 +381,6 @@ static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
 
     DWORD now = GetTickCount();
 
-    // Honor TouchFreeze palm rejection state machine
-    if (TouchGesture_ShouldBlockMouse())
-    {
-        if (g_bRightDragLatched)
-        {
-            SendRightButtonInput(MOUSEEVENTF_RIGHTUP);
-            TFHookSetRightDragActive(FALSE);
-            g_bRightDragLatched = FALSE;
-            g_GestureState = GESTURE_STATE_IDLE;
-        }
-        g_bTouchActive = FALSE;
-        return;
-    }
-
     if (pRawInput->header.dwType != RIM_TYPEHID)
         return;
 
@@ -443,7 +429,7 @@ static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
         if (!g_bTouchActive)
         {
             g_bTouchActive = TRUE;
-            if (IsInPhysicalZone(ratioX, ratioY))
+            if (IsInPhysicalZone(ratioX, ratioY) && !TouchGesture_ShouldBlockMouse())
             {
                 g_bRightDragLatched = TRUE;
                 g_bInvalidStroke = FALSE;
@@ -457,8 +443,9 @@ static void ProcessHIDRawInput(HANDLE hDevice, PRAWINPUT pRawInput)
             {
                 g_bInvalidStroke = TRUE;
                 g_bRightDragLatched = FALSE;
-                OutputDebugString(_T("[TouchFreeze] First touch landed outside zone: Stroke Invalidated\n"));
-                TouchGesture_AddLog(_T("Touch Landed (Out Zone X:%.2f, Y:%.2f) -> Normal Touch"), ratioX, ratioY);
+                OutputDebugString(_T("[TouchFreeze] First touch landed outside zone or during typing block: Stroke Invalidated\n"));
+                TouchGesture_AddLog(_T("Touch Landed (X:%.2f, Y:%.2f) -> %s"), ratioX, ratioY,
+                    TouchGesture_ShouldBlockMouse() ? _T("Blocked by Typing") : _T("Normal Touch"));
             }
         }
         else
@@ -531,32 +518,13 @@ static void UpdatePalmState()
 
     if (keyElapsed < g_TypingTimeoutMs)
     {
-        if (!g_bTouchActive || touchElapsed > g_TypingTimeoutMs)
-        {
-            g_PalmState = PALM_STATE_TYPING;
-        }
-        else
-        {
-            BOOL bIsPalmLike = (g_ContactCount > 1) || (!g_bConfidence) || (g_LastDeltaDist > 0.25);
-            BOOL bIsSmallSingleFinger = (g_ContactCount <= 1) && g_bConfidence && (g_LastDeltaDist <= 0.25);
-
-            if (bIsPalmLike || (!g_bAllowSingleFingerMove && !bIsSmallSingleFinger))
-            {
-                g_PalmState = PALM_STATE_BLOCKED;
-            }
-            else if (g_bAllowSingleFingerMove && bIsSmallSingleFinger)
-            {
-                g_PalmState = PALM_STATE_TOUCH_DETECTED;
-            }
-            else
-            {
-                g_PalmState = PALM_STATE_BLOCKED;
-            }
-        }
+        // During active typing window, clicks/taps must be blocked (Palm Rejection Active)
+        g_PalmState = PALM_STATE_BLOCKED;
     }
     else if (keyElapsed < (g_TypingTimeoutMs + g_CooldownMs))
     {
-        if (g_bTouchActive && (g_ContactCount > 1 || !g_bConfidence))
+        // In cooldown window, block if multi-touch or low confidence is detected
+        if (g_bTouchActive && (g_ContactCount > 1 || !g_bConfidence || g_LastDeltaDist > 0.35))
         {
             g_PalmState = PALM_STATE_BLOCKED;
         }

@@ -285,13 +285,19 @@ static void RefreshMonitorUI(HWND hWnd)
     TouchDiagInfo diag;
     TouchGesture_GetDiagInfo(&diag);
 
-    TCHAR szInfo[512];
+    LPCTSTR szPtpStatus = (diag.hDevice != NULL && diag.maxX > diag.minX) ? 
+        _T("PTP Active (Precision Touchpad Detected)") : 
+        _T("Legacy / Fallback Mode (Keyboard Hook Only)");
+
+    TCHAR szInfo[600];
     _stprintf_s(szInfo, sizeof(szInfo)/sizeof(TCHAR),
+        _T("Touchpad Device: %s\r\n")
         _T("State Machine: %s  |  Blocked: %s  |  Right Drag: %s\r\n")
         _T("Last Key: VK 0x%02X (%u), Key Elapsed: %lu ms (Timeout: %lu ms, Cooldown: %lu ms)\r\n")
         _T("Touch Pos Ratio: X=%.1f%%, Y=%.1f%% (Active: %s, Touch Elapsed: %lu ms)\r\n")
         _T("Touch Feature: DeltaDist=%.3f, Contacts=%d, Confidence=%s, 1-Finger Allowed=%s\r\n")
         _T("Raw Input: Raw X=%lu, Y=%lu (Min/Max X:[%lu..%lu], Y:[%lu..%lu]) | hDev: 0x%p"),
+        szPtpStatus,
         TouchGesture_GetStateName(diag.state),
         diag.bBlocked ? _T("YES") : _T("NO"),
         diag.bDragging ? _T("ACTIVE") : _T("OFF"),
