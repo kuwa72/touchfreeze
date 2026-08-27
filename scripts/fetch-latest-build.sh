@@ -5,8 +5,24 @@
 set -e
 
 REPO="kuwa72/touchfreeze"
-DEST_WIN_DIR="C:\\Users\\ykuwa\\Downloads\\touchfreeze-latest"
-DEST_WSL_DIR="/mnt/c/Users/ykuwa/Downloads/touchfreeze-latest"
+
+if command -v cmd.exe >/dev/null 2>&1; then
+    WIN_PROFILE=$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')
+fi
+if [ -z "$WIN_PROFILE" ]; then
+    WIN_PROFILE="C:\\Users\\$USER"
+fi
+
+WSL_PROFILE=""
+if command -v wslpath >/dev/null 2>&1; then
+    WSL_PROFILE=$(wslpath -u "$WIN_PROFILE" 2>/dev/null || true)
+fi
+if [ -z "$WSL_PROFILE" ]; then
+    WSL_PROFILE="/mnt/c/Users/$USER"
+fi
+
+DEST_WIN_DIR="$WIN_PROFILE\\Downloads\\touchfreeze-latest"
+DEST_WSL_DIR="$WSL_PROFILE/Downloads/touchfreeze-latest"
 
 echo "=== TouchFreeze Remote Build Artifact Fetcher ==="
 
