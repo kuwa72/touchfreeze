@@ -3,6 +3,7 @@ set -euo pipefail
 
 BRANCH=${1:-master}
 OUT_DIR=${2:-Executable/Bin}
+WIN_DIR=${3:-}
 
 if ! command -v gh >/dev/null 2>&1; then
     echo "Error: gh CLI is required." >&2
@@ -36,5 +37,17 @@ fi
 
 mkdir -p "$OUT_DIR"
 cp -f "$SRC_DIR"/* "$OUT_DIR"/
+
+if [ -n "$WIN_DIR" ]; then
+    if [[ "$WIN_DIR" == /* ]]; then
+        WIN_ABS="$WIN_DIR"
+    else
+        WIN_ABS=$(wslpath -u "$WIN_DIR")
+    fi
+    mkdir -p "$WIN_ABS"
+    cp -f "$SRC_DIR"/* "$WIN_ABS"/
+    echo "Copied to Windows: $WIN_DIR"
+fi
+
 echo "Downloaded latest build (run $RUN_ID) to $OUT_DIR"
 ls -la "$OUT_DIR"
