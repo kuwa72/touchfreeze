@@ -198,6 +198,8 @@ static bool IsInPhysicalZone(double ratioX, double ratioY)
     return false;
 }
 
+static void UpdatePalmState();
+
 static void CheckTouchRelease()
 {
     DWORD now = GetTickCount();
@@ -215,6 +217,7 @@ static void CheckTouchRelease()
         g_bTouchActive = FALSE;
         g_bInvalidStroke = FALSE;
     }
+    UpdatePalmState();
 }
 
 BOOL TouchGesture_Init(HWND hWnd)

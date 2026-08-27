@@ -5,8 +5,24 @@
 set -e
 
 REPO="kuwa72/touchfreeze"
-DEST_WIN_DIR="C:\\Users\\ykuwa\\Downloads\\touchfreeze-latest"
-DEST_WSL_DIR="/mnt/c/Users/ykuwa/Downloads/touchfreeze-latest"
+
+if command -v cmd.exe >/dev/null 2>&1; then
+    WIN_PROFILE=$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')
+fi
+if [ -z "$WIN_PROFILE" ]; then
+    WIN_PROFILE="C:\\Users\\$USER"
+fi
+
+WSL_PROFILE=""
+if command -v wslpath >/dev/null 2>&1; then
+    WSL_PROFILE=$(wslpath -u "$WIN_PROFILE" 2>/dev/null || true)
+fi
+if [ -z "$WSL_PROFILE" ]; then
+    WSL_PROFILE="/mnt/c/Users/$USER"
+fi
+
+DEST_WIN_DIR="$WIN_PROFILE\\Downloads\\touchfreeze-latest"
+DEST_WSL_DIR="$WSL_PROFILE/Downloads/touchfreeze-latest"
 
 echo "=== TouchFreeze Remote Build Artifact Fetcher ==="
 
@@ -37,8 +53,14 @@ trap "rm -rf '$TEMP_DIR'" EXIT
 echo "[3/4] Downloading artifacts from run $RUN_ID..."
 gh run download -R "$REPO" "$RUN_ID" --name touchfreeze-bin --dir "$TEMP_DIR"
 
+if [ -d "$TEMP_DIR/touchfreeze-bin" ]; then
+    SRC_DIR="$TEMP_DIR/touchfreeze-bin"
+else
+    SRC_DIR="$TEMP_DIR"
+fi
+
 echo "[4/4] Copying files to $DEST_WIN_DIR ($DEST_WSL_DIR)..."
-cp -v "$TEMP_DIR"/* "$DEST_WSL_DIR/"
+cp -fv "$SRC_DIR"/* "$DEST_WSL_DIR/"
 
 echo ""
 echo "=== Done! Artifacts copied successfully ==="
