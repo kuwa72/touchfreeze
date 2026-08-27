@@ -37,8 +37,14 @@ trap "rm -rf '$TEMP_DIR'" EXIT
 echo "[3/4] Downloading artifacts from run $RUN_ID..."
 gh run download -R "$REPO" "$RUN_ID" --name touchfreeze-bin --dir "$TEMP_DIR"
 
+if [ -d "$TEMP_DIR/touchfreeze-bin" ]; then
+    SRC_DIR="$TEMP_DIR/touchfreeze-bin"
+else
+    SRC_DIR="$TEMP_DIR"
+fi
+
 echo "[4/4] Copying files to $DEST_WIN_DIR ($DEST_WSL_DIR)..."
-cp -v "$TEMP_DIR"/* "$DEST_WSL_DIR/"
+cp -fv "$SRC_DIR"/* "$DEST_WSL_DIR/"
 
 echo ""
 echo "=== Done! Artifacts copied successfully ==="
