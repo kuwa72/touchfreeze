@@ -20,14 +20,7 @@ jobs:
       uses: microsoft/setup-msbuild@v2
     
     - name: Build Solution
-      run: |
-        echo Display available configurations
-        msbuild TouchFreeze.sln -pp | findstr "Release|Win32"
-        echo Build the solution
-        msbuild TouchFreeze.sln /p:Configuration=Release /p:Platform=Win32 /verbosity:minimal
-        echo Find msi file in powershell and output
-        powershell -Command "Get-ChildItem -Path 'Executable\bin' -Filter '*.msi' -Name"
-        echo done
+      run: powershell -ExecutionPolicy Bypass -File .\build.ps1
     
     - name: Upload Build Artifacts
       uses: actions/upload-artifact@v4

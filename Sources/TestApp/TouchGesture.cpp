@@ -198,6 +198,8 @@ static bool IsInPhysicalZone(double ratioX, double ratioY)
     return false;
 }
 
+static void UpdatePalmState();
+
 static void CheckTouchRelease()
 {
     DWORD now = GetTickCount();
