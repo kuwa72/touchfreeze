@@ -23,6 +23,18 @@ if [ -z "$RUN_ID" ]; then
     exit 1
 fi
 
+TMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TMP_DIR"' EXIT
+
+gh run download "$RUN_ID" --repo "$REPO" --name touchfreeze-bin --dir "$TMP_DIR"
+
+if [ -d "$TMP_DIR/touchfreeze-bin" ]; then
+    SRC_DIR="$TMP_DIR/touchfreeze-bin"
+else
+    SRC_DIR="$TMP_DIR"
+fi
+
 mkdir -p "$OUT_DIR"
-gh run download "$RUN_ID" --repo "$REPO" --name touchfreeze-bin --dir "$OUT_DIR"
+cp -f "$SRC_DIR"/* "$OUT_DIR"/
 echo "Downloaded latest build (run $RUN_ID) to $OUT_DIR"
+ls -la "$OUT_DIR"
