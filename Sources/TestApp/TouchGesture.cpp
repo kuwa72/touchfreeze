@@ -215,6 +215,7 @@ static void CheckTouchRelease()
         g_bTouchActive = FALSE;
         g_bInvalidStroke = FALSE;
     }
+    UpdatePalmState();
 }
 
 BOOL TouchGesture_Init(HWND hWnd)
